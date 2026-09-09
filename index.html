@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buzz Lightyear - Live Game Buzzer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.6); }
+      50% { box-shadow: 0 0 50px rgba(239, 68, 68, 1); }
+    }
+    .buzzer-active { animation: pulse-glow 1.5s infinite; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans flex flex-col items-center justify-center p-4">
+
+  <!-- Header -->
+  <header class="mb-8 text-center">
+    <div class="inline-block px-3 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-full text-indigo-400 text-xs font-mono mb-2">
+      🚀 TO INFINITY AND... BUZZ FIRST!
+    </div>
+    <h1 class="text-4xl font-black tracking-wider bg-gradient-to-r from-emerald-400 via-purple-400 to-amber-300 bg-clip-text text-transparent">
+      BUZZ LIGHTYEAR
+    </h1>
+    <p class="text-slate-400 text-sm mt-1">Don't let your friends win. Press faster!</p>
+  </header>
+
+  <!-- Landing View -->
+  <div id="view-landing" class="w-full max-w-md bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl shadow-xl border border-slate-700/50">
+    <div class="flex gap-2 mb-6">
+      <button id="tab-player-btn" onclick="switchTab('player')" class="flex-1 py-2 font-bold rounded-lg bg-indigo-600 text-white transition">Player Join</button>
+      <button id="tab-host-btn" onclick="switchTab('host')" class="flex-1 py-2 font-bold rounded-lg bg-slate-700 text-slate-400 transition">Host Dashboard</button>
+    </div>
+
+    <!-- Player Join Form -->
+    <form id="form-player" onsubmit="handlePlayerJoin(event)" class="space-y-4">
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">ROOM CODE</label>
+        <input type="text" id="p-room" required placeholder="e.g. 8888" class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:border-indigo-500 font-mono text-lg uppercase">
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">YOUR NICKNAME</label>
+        <input type="text" id="p-name" required placeholder="e.g. Alex" class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:border-indigo-500 text-lg">
+      </div>
+      <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 font-bold rounded-xl shadow-lg transition">Enter Room</button>
+    </form>
+
+    <!-- Host Form -->
+    <form id="form-host" class="space-y-4 hidden">
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">ROOM CODE</label>
+        <input type="text" id="h-room" required placeholder="e.g. 8888" class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:border-indigo-500 font-mono text-lg uppercase">
+      </div>
+      <div>
+        <label class="block text-xs text-slate-400 mb-1">SECURITY CODE (HOST PASSCODE)</label>
+        <input type="password" id="h-code" required placeholder="••••••••" class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:border-indigo-500 text-lg">
+      </div>
+      <div class="flex gap-2">
+        <button type="button" onclick="submitHostAction('create')" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 font-bold rounded-xl transition text-sm">Create New Room</button>
+        <button type="button" onclick="submitHostAction('login')" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 font-bold rounded-xl transition text-sm">Re-login Host</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Player View -->
+  <div id="view-player" class="w-full max-w-md hidden text-center space-y-6">
+    <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 flex justify-between text-sm">
+      <span>Room: <strong id="display-p-room" class="text-indigo-400 font-mono"></strong></span>
+      <span>Player: <strong id="display-p-name" class="text-indigo-400"></strong></span>
+    </div>
+
+    <div class="py-6 flex justify-center">
+      <button id="buzzer-btn" onclick="pressBuzzer()" disabled class="w-64 h-64 rounded-full bg-slate-800 border-8 border-slate-700 text-slate-600 text-3xl font-black shadow-inner flex items-center justify-center select-none cursor-not-allowed">
+        LOCKED 🔒
+      </button>
+    </div>
+    <div id="player-status" class="text-slate-400 text-sm font-medium h-6">Waiting for Host to start...</div>
+  </div>
+
+  <!-- Host View -->
+  <div id="view-host" class="w-full max-w-2xl hidden space-y-6">
+    <div class="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/50 flex justify-between items-center">
+      <div>
+        <span class="text-xs text-slate-400">HOST DASHBOARD</span>
+        <h2 class="text-xl font-bold font-mono text-indigo-400">Room: <span id="display-h-room"></span></h2>
+      </div>
+      <div class="text-sm text-slate-400">Active Players: <span id="player-count" class="text-emerald-400 font-bold">0</span></div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <button onclick="socket.emit('start_round')" class="py-4 bg-emerald-500 hover:bg-emerald-600 font-extrabold text-lg rounded-2xl shadow-lg transition">🚀 START ROUND</button>
+      <button onclick="socket.emit('reset_round')" class="py-4 bg-rose-600 hover:bg-rose-700 font-extrabold text-lg rounded-2xl shadow-lg transition">🔄 RESET / CLEAR</button>
+    </div>
+
+    <div class="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 space-y-2">
+      <span class="text-xs text-slate-400 font-bold tracking-wider">HOST FX & AUDIO TRIGGER</span>
+      <div class="grid grid-cols-3 gap-2">
+        <button onclick="triggerEffect('cheer')" class="py-2.5 bg-amber-600 hover:bg-amber-500 font-bold rounded-xl text-xs transition">🎉 Confetti & Cheer</button>
+        <button onclick="triggerEffect('bell')" class="py-2.5 bg-indigo-600 hover:bg-indigo-500 font-bold rounded-xl text-xs transition">🔔 Correct Bell</button>
+        <button onclick="triggerEffect('wrong')" class="py-2.5 bg-slate-700 hover:bg-slate-600 font-bold rounded-xl text-xs transition">❌ Wrong Buzzer</button>
+      </div>
+    </div>
+
+    <div class="bg-slate-800/80 p-5 rounded-2xl border border-slate-700/50 space-y-3">
+      <h3 class="font-bold text-slate-300 text-sm">Fastest Buzzers</h3>
+      <div id="buzz-list" class="space-y-2 min-h-[120px]">
+        <div class="text-slate-500 text-center text-sm py-8">No buzzes yet in this round.</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="mt-8 text-center text-xs text-slate-500">
+    <p>⚡ <strong>Buzz Lightyear</strong> - To infinity and second place!</p>
+    <p class="mt-1 opacity-60">Not affiliated with Disney/Pixar. Just a fun tool for classroom & party games.</p>
+  </footer>
+
+  <script>
+    // 本地开发连 localhost，线上自动切换
+    const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+      ? 'http://localhost:3000' 
+      : 'https://YOUR-RENDER-APP.onrender.com';
+    const socket = io(BACKEND_URL);
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound(type) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      if (type === 'buzz') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+      } else if (type === 'bell') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.6);
+      } else if (type === 'wrong') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+      }
+    }
+
+    function switchTab(tab) {
+      document.getElementById('form-player').classList.toggle('hidden', tab !== 'player');
+      document.getElementById('form-host').classList.toggle('hidden', tab !== 'host');
+      document.getElementById('tab-player-btn').className = tab === 'player' ? 'flex-1 py-2 font-bold rounded-lg bg-indigo-600 text-white transition' : 'flex-1 py-2 font-bold rounded-lg bg-slate-700 text-slate-400 transition';
+      document.getElementById('tab-host-btn').className = tab === 'host' ? 'flex-1 py-2 font-bold rounded-lg bg-indigo-600 text-white transition' : 'flex-1 py-2 font-bold rounded-lg bg-slate-700 text-slate-400 transition';
+    }
+
+    function handlePlayerJoin(e) {
+      e.preventDefault();
+      const roomCode = document.getElementById('p-room').value.trim().toUpperCase();
+      const name = document.getElementById('p-name').value.trim();
+
+      socket.emit('join_player', { roomCode, name }, (res) => {
+        if (res.success) {
+          document.getElementById('view-landing').classList.add('hidden');
+          document.getElementById('view-player').classList.remove('hidden');
+          document.getElementById('display-p-room').innerText = roomCode;
+          document.getElementById('display-p-name').innerText = name;
+          if (res.isCanBuzz) updateBuzzerState(true);
+        } else {
+          alert(res.message);
+        }
+      });
+    }
+
+    function submitHostAction(action) {
+      const roomCode = document.getElementById('h-room').value.trim().toUpperCase();
+      const hostCode = document.getElementById('h-code').value.trim();
+      if (!roomCode || !hostCode) return alert('Please enter both Room Code and Security Code!');
+
+      const eventName = action === 'create' ? 'create_room' : 'host_login';
+      socket.emit(eventName, { roomCode, hostCode }, (res) => {
+        if (res.success) {
+          document.getElementById('view-landing').classList.add('hidden');
+          document.getElementById('view-host').classList.remove('hidden');
+          document.getElementById('display-h-room').innerText = roomCode;
+          if (res.roomData) updateHostLeaderboard(res.roomData.buzzList);
+        } else {
+          alert(res.message);
+        }
+      });
+    }
+
+    function pressBuzzer() {
+      playSound('buzz');
+      if (navigator.vibrate) navigator.vibrate(100);
+      socket.emit('press_buzzer');
+      updateBuzzerState(false, "BUZZED IN!");
+    }
+
+    function triggerEffect(type) {
+      socket.emit('trigger_effect', type);
+    }
+
+    function updateBuzzerState(enabled, statusText) {
+      const btn = document.getElementById('buzzer-btn');
+      const status = document.getElementById('player-status');
+      btn.disabled = !enabled;
+      if (enabled) {
+        btn.className = "w-64 h-64 rounded-full bg-gradient-to-tr from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white text-4xl font-black shadow-2xl transition-all duration-100 flex items-center justify-center select-none active:scale-95 cursor-pointer buzzer-active";
+        btn.innerText = "BUZZ!";
+        status.innerText = "READY! PRESS TO BUZZ!";
+        status.className = "text-emerald-400 font-bold text-sm h-6";
+      } else {
+        btn.className = "w-64 h-64 rounded-full bg-slate-800 border-8 border-slate-700 text-slate-600 text-3xl font-black shadow-inner flex items-center justify-center select-none cursor-not-allowed";
+        btn.innerText = statusText || "LOCKED 🔒";
+        status.innerText = statusText ? "You have buzzed in!" : "Waiting for next round...";
+        status.className = "text-slate-400 text-sm font-medium h-6";
+      }
+    }
+
+    function updateHostLeaderboard(list) {
+      const container = document.getElementById('buzz-list');
+      if (!list || list.length === 0) {
+        container.innerHTML = `<div class="text-slate-500 text-center text-sm py-8">No buzzes yet in this round.</div>`;
+        return;
+      }
+      container.innerHTML = list.map((item, idx) => `
+        <div class="flex justify-between items-center p-3 rounded-xl ${idx === 0 ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300' : 'bg-slate-700/40 text-slate-300'}">
+          <div class="flex items-center gap-3">
+            <span class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${idx === 0 ? 'bg-amber-500 text-slate-900' : 'bg-slate-600'}">${item.rank}</span>
+            <span class="font-bold">${item.name}</span>
+          </div>
+          <span class="font-mono text-xs opacity-70">${item.time}</span>
+        </div>
+      `).join('');
+    }
+
+    socket.on('round_started', () => updateBuzzerState(true));
+    socket.on('round_reset', () => {
+      updateBuzzerState(false);
+      updateHostLeaderboard([]);
+    });
+    socket.on('buzz_update', (buzzList) => updateHostLeaderboard(buzzList));
+    socket.on('player_list_updated', (players) => {
+      const el = document.getElementById('player-count');
+      if (el) el.innerText = players.length;
+    });
+    socket.on('play_effect', (type) => {
+      if (type === 'cheer') {
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        playSound('bell');
+      } else if (type === 'bell') playSound('bell');
+      else if (type === 'wrong') playSound('wrong');
+    });
+  </script>
+</body>
+</html>
