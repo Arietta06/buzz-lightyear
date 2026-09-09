@@ -9,201 +9,229 @@ app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // 允许所有前端跨域连接
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
 
-// 内存中保存所有房间数据
-// 结构: { [roomCode]: { hostCode, players: [{id, name}], buzzList: [], canBuzz: false } }
+// 内存中保存的所有房间数据
+// 结构: { roomCode: { hostCode, players: [{id, name}], buzzList: [], isCanBuzz: false, startTime: null } }
 const rooms = {};
 
 io.on('connection', (socket) => {
-  console.log(`[Connect] New client connected: ${socket.id}`);
+  console.log(`[Connected] Socket ID: ${socket.id}`);
 
-  // 统一广播房间内最新的在线玩家列表
-  const updateRoomPlayerList = (roomCode) => {
-    const room = rooms[roomCode];
-    if (room) {
-      // 过滤无效或断联的数据
-      const activePlayers = room.players.filter(p => p && p.id);
-      io.to(roomCode).emit('player_list_updated', activePlayers);
-      console.log(`[Room Update] Room ${roomCode} online players count: ${activePlayers.length}`);
-    }
-  };
-
-  // 处理玩家离开/断线通用逻辑
-  const handleUserLeave = (sock) => {
-    const roomCode = sock.roomCode;
-    if (roomCode && rooms[roomCode] && sock.isPlayer) {
-      const room = rooms[roomCode];
-      // 从玩家列表中移除该 socket.id
-      room.players = room.players.filter(p => p.id !== sock.id);
-      
-      // 实时广播更新给 Host
-      updateRoomPlayerList(roomCode);
-      console.log(`[Player Left] ${sock.playerName || 'A player'} left room ${roomCode}`);
-      
-      // 重置 Socket 绑定标识
-      sock.roomCode = null;
-      sock.isPlayer = false;
-    }
-  };
-
-  // 1. 创建房间 (Host)
+  // 1. Host 创建房间
   socket.on('create_room', ({ roomCode, hostCode }, callback) => {
-    const upperRoom = roomCode.trim().toUpperCase();
-    if (rooms[upperRoom]) {
-      return callback({ success: false, message: 'Room code already exists!' });
+    if (!roomCode || !hostCode) {
+      return callback({ success: false, message: 'Room Code and Passcode are required.' });
+    }
+    
+    // 如果房间已存在
+    if (rooms[roomCode]) {
+      return callback({ success: false, message: 'Room code already exists. Try re-logging in.' });
     }
 
-    rooms[upperRoom] = {
-      hostCode: hostCode,
+    // 初始化房间
+    rooms[roomCode] = {
+      hostCode,
+      hostSocketId: socket.id,
       players: [],
       buzzList: [],
-      canBuzz: false
+      isCanBuzz: false,
+      startTime: null
     };
 
-    socket.roomCode = upperRoom;
+    socket.join(roomCode);
+    socket.roomCode = roomCode;
     socket.isHost = true;
-    socket.join(upperRoom);
 
-    console.log(`[Room Created] Room: ${upperRoom}`);
-    callback({ success: true, roomData: rooms[upperRoom] });
+    console.log(`[Room Created] ${roomCode}`);
+    callback({ 
+      success: true, 
+      roomData: { 
+        buzzList: rooms[roomCode].buzzList, 
+        players: rooms[roomCode].players 
+      } 
+    });
   });
 
-  // 2. Host 重新登录/断线重连
+  // 2. Host 重新登录
   socket.on('host_login', ({ roomCode, hostCode }, callback) => {
-    const upperRoom = roomCode.trim().toUpperCase();
-    const room = rooms[upperRoom];
-
+    const room = rooms[roomCode];
     if (!room) {
-      return callback({ success: false, message: 'Room does not exist!' });
+      return callback({ success: false, message: 'Room does not exist.' });
     }
     if (room.hostCode !== hostCode) {
-      return callback({ success: false, message: 'Incorrect Host passcode!' });
+      return callback({ success: false, message: 'Incorrect Host Passcode!' });
     }
 
-    socket.roomCode = upperRoom;
+    room.hostSocketId = socket.id;
+    socket.join(roomCode);
+    socket.roomCode = roomCode;
     socket.isHost = true;
-    socket.join(upperRoom);
 
-    console.log(`[Host Relogin] Host joined room: ${upperRoom}`);
-    callback({ success: true, roomData: room });
+    console.log(`[Host Re-logged in] Room: ${roomCode}`);
+    callback({ 
+      success: true, 
+      roomData: { 
+        buzzList: room.buzzList, 
+        players: room.players 
+      } 
+    });
   });
 
-  // 3. 玩家加入房间 (Player)
+  // 3. 玩家加入房间
   socket.on('join_player', ({ roomCode, name }, callback) => {
-    const upperRoom = roomCode.trim().toUpperCase();
-    const room = rooms[upperRoom];
-
+    const room = rooms[roomCode];
     if (!room) {
-      return callback({ success: false, message: 'Room not found! Check room code.' });
+      return callback({ success: false, message: 'Room does not exist.' });
     }
 
-    socket.roomCode = upperRoom;
-    socket.isPlayer = true;
-    socket.playerName = name.trim();
-    socket.join(upperRoom);
+    // 保存玩家信息到 socket 实例
+    socket.join(roomCode);
+    socket.roomCode = roomCode;
+    socket.playerName = name;
+    socket.isHost = false;
 
-    // 检查玩家是否已在列表中，不存在则推入，存在则更新名字
-    const playerIndex = room.players.findIndex(p => p.id === socket.id);
-    if (playerIndex === -1) {
-      room.players.push({ id: socket.id, name: socket.playerName });
+    // 添加到房间玩家列表（如重名则追加或替换）
+    const existingPlayerIndex = room.players.findIndex(p => p.id === socket.id);
+    if (existingPlayerIndex !== -1) {
+      room.players[existingPlayerIndex].name = name;
     } else {
-      room.players[playerIndex].name = socket.playerName;
+      room.players.push({ id: socket.id, name });
     }
 
-    console.log(`[Player Joined] ${socket.playerName} joined room ${upperRoom}`);
+    // 通知房间内所有人（主要是 Host）更新玩家列表
+    io.to(roomCode).emit('player_list_updated', room.players);
 
-    // ⚡ 立即广播最新玩家列表
-    updateRoomPlayerList(upperRoom);
-
-    callback({ success: true, isCanBuzz: room.canBuzz });
+    console.log(`[Player Joined] ${name} -> Room: ${roomCode}`);
+    callback({ success: true, isCanBuzz: room.isCanBuzz });
   });
 
-  // 4. 玩家主动点击“EXIT / 退出”
-  socket.on('leave_room', () => {
-    handleUserLeave(socket);
-  });
-
-  // 5. ⚡ 核心离线检测：关闭网页 / 刷新 / 网络断开
-  socket.on('disconnecting', () => {
-    handleUserLeave(socket);
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`[Connect Closed] ${socket.id}`);
-  });
-
-  // 6. Host 开始新一轮抢答
+  // 4. Host 开启抢答 (Start Round)
   socket.on('start_round', () => {
     const roomCode = socket.roomCode;
     const room = rooms[roomCode];
-
     if (room && socket.isHost) {
-      room.canBuzz = true;
-      room.buzzList = []; // 清空上一轮抢答记录
+      room.isCanBuzz = true;
+      room.buzzList = [];
+      room.startTime = Date.now();
 
       io.to(roomCode).emit('round_started');
       io.to(roomCode).emit('buzz_update', []);
-      console.log(`[Round Started] Room ${roomCode}`);
+      console.log(`[Round Started] Room: ${roomCode}`);
     }
   });
 
-  // 7. Host 重置/清空当前轮
+  // 5. Host 重置/清空抢答 (Reset Round)
   socket.on('reset_round', () => {
     const roomCode = socket.roomCode;
     const room = rooms[roomCode];
-
     if (room && socket.isHost) {
-      room.canBuzz = false;
+      room.isCanBuzz = false;
       room.buzzList = [];
+      room.startTime = null;
 
       io.to(roomCode).emit('round_reset');
-      console.log(`[Round Reset] Room ${roomCode}`);
+      console.log(`[Round Reset] Room: ${roomCode}`);
     }
   });
 
-  // 8. 玩家按下抢答器
+  // 6. 玩家按下 Buzzer 抢答
   socket.on('press_buzzer', () => {
     const roomCode = socket.roomCode;
     const room = rooms[roomCode];
 
-    if (room && room.canBuzz && socket.isPlayer) {
-      // 检查该玩家是否已经抢过答
+    if (room && room.isCanBuzz && !socket.isHost) {
+      // 检查玩家是否已经在本次列表中
       const alreadyBuzzed = room.buzzList.some(b => b.id === socket.id);
       if (!alreadyBuzzed) {
+        const timeDiff = ((Date.now() - room.startTime) / 1000).toFixed(2);
         const rank = room.buzzList.length + 1;
-        const now = new Date();
-        const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds().toString().padStart(3, '0')}`;
 
-        room.buzzList.push({
+        const buzzRecord = {
           id: socket.id,
           rank: `#${rank}`,
           name: socket.playerName || 'Anonymous',
-          time: timeStr
-        });
+          time: `+${timeDiff}s`
+        };
 
-        // 广播最新的抢答排行榜
+        room.buzzList.push(buzzRecord);
+        // 广播抢答榜单更新
         io.to(roomCode).emit('buzz_update', room.buzzList);
-        console.log(`[Buzzed] ${socket.playerName} rank ${rank} in room ${roomCode}`);
+        console.log(`[Buzzed] ${socket.playerName} (#${rank}) in Room: ${roomCode}`);
       }
     }
   });
 
-  // 9. Host 触发音效/特效
+  // 7. Host 触发音效/动画特效
   socket.on('trigger_effect', (type) => {
     const roomCode = socket.roomCode;
     if (roomCode && socket.isHost) {
       io.to(roomCode).emit('play_effect', type);
-      console.log(`[Effect Triggered] Type: ${type} in room ${roomCode}`);
     }
   });
+
+  // 8. 🗑️ Host 删除房间 (Delete Room)
+  socket.on('delete_room', (callback) => {
+    const roomCode = socket.roomCode;
+    const room = rooms[roomCode];
+
+    if (roomCode && room && socket.isHost) {
+      console.log(`[Deleting Room] ${roomCode}...`);
+
+      // 1. 向该房间内的所有客户端（玩家和 Host）广播房间已解散
+      io.to(roomCode).emit('room_deleted');
+
+      // 2. 将房间内的所有连接移出该 Socket 房间频道
+      io.in(roomCode).socketsLeave(roomCode);
+
+      // 3. 从服务器内存中彻底摧毁房间数据
+      delete rooms[roomCode];
+
+      if (typeof callback === 'function') {
+        callback({ success: true });
+      }
+    } else {
+      if (typeof callback === 'function') {
+        callback({ success: false, message: 'Room not found or unauthorized.' });
+      }
+    }
+  });
+
+  // 9. 玩家手动离开房间
+  socket.on('leave_room', () => {
+    handleUserDisconnect(socket);
+  });
+
+  // 10. 连接断开处理 (Disconnect)
+  socket.on('disconnect', () => {
+    console.log(`[Disconnected] Socket ID: ${socket.id}`);
+    handleUserDisconnect(socket);
+  });
+
+  // 统一的离开/断连清理逻辑
+  function handleUserDisconnect(s) {
+    const roomCode = s.roomCode;
+    const room = rooms[roomCode];
+
+    if (room && !s.isHost) {
+      // 从玩家列表中移除
+      room.players = room.players.filter(p => p.id !== s.id);
+      s.leave(roomCode);
+      
+      // 广播最新的在线玩家列表
+      io.to(roomCode).emit('player_list_updated', room.players);
+    }
+  }
 });
 
-// 监听端口（兼容 Render 动态端口）
+// 启动服务器
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`🚀 Buzz Lightyear backend server running on port ${PORT}`);
+  console.log(`=================================`);
+  console.log(`🚀 Buzz Lightyear Server is Running!`);
+  console.log(`📡 Listening on Port: ${PORT}`);
+  console.log(`=================================`);
 });

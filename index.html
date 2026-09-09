@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Buzz Lightyear - Buzzer</title>
-  <!-- 引入现代无衬线高清晰度字体 Inter -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -12,19 +11,16 @@
   
   <style>
     :root {
-      /* 使用极为清晰直观的现代无衬线字体 */
       --main-font: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      
-      /* 巴斯光年经典高对比度色彩 */
-      --bz-white: #FFFFFF;          /* 纯白 */
-      --bz-green: #22C55E;          /* 亮鲜绿 */
+      --bz-white: #FFFFFF;
+      --bz-green: #22C55E;
       --bz-green-hover: #16A34A;
-      --bz-purple: #7C3AED;         /* 高饱和紫 */
+      --bz-purple: #7C3AED;
       --bz-purple-hover: #6D28D9;
-      --bz-red: #EF4444;            /* 鲜艳红 */
+      --bz-red: #EF4444;
       --bz-red-hover: #DC2626;
-      --bz-yellow: #FACC15;         /* 警示黄 */
-      --bz-dark-bg: #0F172A;        /* 深蓝黑底色，衬托文字 */
+      --bz-yellow: #FACC15;
+      --bz-dark-bg: #0F172A;
 
       --pixel-shadow: 4px 4px 0px #000000;
       --pixel-shadow-sm: 2px 2px 0px #000000;
@@ -39,7 +35,6 @@
     body {
       background-color: var(--bz-dark-bg);
       color: #FFFFFF;
-      /* 清晰的空间背景排版 */
       background-image: 
         radial-gradient(circle at 50% 20%, rgba(124, 58, 237, 0.2) 0%, transparent 60%),
         linear-gradient(0deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
@@ -47,7 +42,6 @@
       background-size: 100% 100%, 30px 30px, 30px 30px;
     }
 
-    /* 高对比度卡片容器 */
     .arcade-card {
       background: #FFFFFF;
       color: #0F172A;
@@ -57,7 +51,6 @@
       position: relative;
     }
 
-    /* 醒目的警示斜纹 */
     .hazard-stripe {
       background: repeating-linear-gradient(
         45deg,
@@ -68,7 +61,6 @@
       );
     }
 
-    /* 清晰易读的输入框 */
     .arcade-input {
       border: 3px solid #000000;
       border-radius: 8px;
@@ -83,7 +75,6 @@
       box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.3);
     }
 
-    /* 超大文字清晰按钮 */
     .arcade-btn {
       border: 3px solid #000000;
       border-radius: 8px;
@@ -99,51 +90,26 @@
       box-shadow: var(--pixel-shadow-sm);
     }
 
-    /* 按钮主题色与悬停增强 */
-    .btn-arcade-blue { 
-      background-color: var(--bz-purple); 
-      color: #FFFFFF; 
-    }
-    .btn-arcade-blue:hover { 
-      background-color: var(--bz-purple-hover); 
-    }
+    .btn-arcade-blue { background-color: var(--bz-purple); color: #FFFFFF; }
+    .btn-arcade-blue:hover { background-color: var(--bz-purple-hover); }
 
-    .btn-arcade-green { 
-      background-color: var(--bz-green); 
-      color: #FFFFFF; 
-    }
-    .btn-arcade-green:hover { 
-      background-color: var(--bz-green-hover); 
-    }
+    .btn-arcade-green { background-color: var(--bz-green); color: #FFFFFF; }
+    .btn-arcade-green:hover { background-color: var(--bz-green-hover); }
 
-    .btn-arcade-red { 
-      background-color: var(--bz-red); 
-      color: #FFFFFF; 
-    }
-    .btn-arcade-red:hover { 
-      background-color: var(--bz-red-hover); 
-    }
+    .btn-arcade-red { background-color: var(--bz-red); color: #FFFFFF; }
+    .btn-arcade-red:hover { background-color: var(--bz-red-hover); }
 
-    .btn-arcade-gray { 
-      background-color: #E2E8F0; 
-      color: #0F172A; 
-    }
-    .btn-arcade-gray:hover { 
-      background-color: #CBD5E1; 
-    }
+    .btn-arcade-gray { background-color: #E2E8F0; color: #0F172A; }
+    .btn-arcade-gray:hover { background-color: #CBD5E1; }
 
-    /* 巴斯光年三维圆光枪抢答按钮 */
     .laser-buzzer {
       border-radius: 50% !important;
       background: radial-gradient(circle at 35% 35%, #FF758F 0%, var(--bz-red) 55%, #991B1B 100%);
       border: 8px solid #000000;
-      box-shadow: 
-        0 0 0 6px #FFFFFF,
-        0 12px 24px rgba(0,0,0,0.5);
+      box-shadow: 0 0 0 6px #FFFFFF, 0 12px 24px rgba(0,0,0,0.5);
       transition: all 0.15s ease;
     }
 
-    /* 抢答就绪状态高亮动画 */
     .buzzer-active {
       background: radial-gradient(circle at 35% 35%, #86EFAC 0%, var(--bz-green) 55%, #15803D 100%) !important;
       animation: laser-pulse 1.2s infinite alternate;
@@ -152,18 +118,8 @@
     }
 
     @keyframes laser-pulse {
-      0% {
-        box-shadow: 
-          0 0 0 6px var(--bz-yellow),
-          0 0 30px var(--bz-green);
-        transform: scale(1);
-      }
-      100% {
-        box-shadow: 
-          0 0 0 10px var(--bz-yellow),
-          0 0 50px var(--bz-green);
-        transform: scale(1.04);
-      }
+      0% { box-shadow: 0 0 0 6px var(--bz-yellow), 0 0 30px var(--bz-green); transform: scale(1); }
+      100% { box-shadow: 0 0 0 10px var(--bz-yellow), 0 0 50px var(--bz-green); transform: scale(1.04); }
     }
   </style>
 </head>
@@ -246,7 +202,6 @@
       <div class="text-sm font-black">ONLINE PLAYERS: <span id="player-count" class="text-[var(--bz-green)] text-2xl font-black">0</span></div>
     </div>
 
-    <!-- 在线玩家标签栏 -->
     <div class="arcade-card p-4 bg-white">
       <div class="text-xs font-black mb-2 tracking-wider">CONNECTED PLAYERS:</div>
       <div id="active-players-tags" class="flex flex-wrap gap-2 text-xs min-h-[28px]">
@@ -275,7 +230,7 @@
       </div>
     </div>
 
-    <!-- Host 界面最下方的 DELETE ROOM 按钮 -->
+    <!-- Delete Room 按钮 -->
     <div class="pt-2">
       <button onclick="deleteRoom()" class="w-full py-4 arcade-btn btn-arcade-red text-lg tracking-wider flex items-center justify-center gap-2">
         🗑️ DELETE ROOM
@@ -294,7 +249,6 @@
     : 'https://buzz-lightyear-backend.onrender.com'; 
 
     const socket = io(BACKEND_URL); 
-
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
     function playSound(type) {
@@ -308,19 +262,15 @@
             const gain = audioCtx.createGain();
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            
             const duration = index === notes.length - 1 ? 0.6 : 0.12;
             gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-            
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-            
             osc.start();
             osc.stop(audioCtx.currentTime + duration);
           }, index * 100);
         });
-
       } else if (type === 'buzz') {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -333,7 +283,6 @@
         gain.connect(audioCtx.destination);
         osc.start(); 
         osc.stop(audioCtx.currentTime + 0.2);
-
       } else if (type === 'bell') {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -345,7 +294,6 @@
         gain.connect(audioCtx.destination);
         osc.start(); 
         osc.stop(audioCtx.currentTime + 0.4);
-
       } else if (type === 'wrong') {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -417,16 +365,25 @@
       });
     }
 
-    /* 删除房间逻辑 */
+    /* 改进后的精准 Delete Room 逻辑 */
     function deleteRoom() {
       if (confirm('Are you sure you want to delete this room? All connected players will be disconnected.')) {
-        socket.emit('delete_room', (res) => {
-          if (res && res.success) {
-            alert('Room deleted successfully!');
-          }
-          document.getElementById('view-host').classList.add('hidden');
-          document.getElementById('view-landing').classList.remove('hidden');
-        });
+        // 向服务器发送删除指令
+        socket.emit('delete_room');
+        
+        // 1. 立即强制退回主页 View
+        document.getElementById('view-host').classList.add('hidden');
+        document.getElementById('view-landing').classList.remove('hidden');
+        
+        // 2. 清空 Host 表单
+        document.getElementById('h-room').value = '';
+        document.getElementById('h-code').value = '';
+        
+        // 3. 重置列表面板状态
+        updateHostLeaderboard([]);
+        updatePlayerList([]);
+        
+        alert('Room deleted successfully!');
       }
     }
 
@@ -479,7 +436,7 @@
       const countEl = document.getElementById('player-count');
       const tagsEl = document.getElementById('active-players-tags');
       
-      if (countEl) countEl.innerText = players.length;
+      if (countEl) countEl.innerText = players ? players.length : 0;
       if (tagsEl) {
         if (!players || players.length === 0) {
           tagsEl.innerHTML = `<span class="text-gray-400 italic font-bold">No players connected...</span>`;
@@ -499,12 +456,9 @@
       updateHostLeaderboard([]);
     });
     socket.on('buzz_update', (buzzList) => updateHostLeaderboard(buzzList));
-    
-    socket.on('player_list_updated', (players) => {
-      updatePlayerList(players);
-    });
+    socket.on('player_list_updated', (players) => updatePlayerList(players));
 
-    /* 监听房间被主持人删除通知（玩家端提示并退回主界面） */
+    /* 玩家接收房间被解散通知 */
     socket.on('room_deleted', () => {
       alert('The Host has deleted this room.');
       document.getElementById('view-player').classList.add('hidden');
