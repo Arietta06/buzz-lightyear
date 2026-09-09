@@ -118,11 +118,12 @@
   </footer>
 
   <script>
-    // 本地开发连 localhost，线上自动切换
+    // 如果是本地测试就连 localhost，线上环境自动连接 Render 的后端
     const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-      ? 'http://localhost:3000' 
-      : 'https://YOUR-RENDER-APP.onrender.com';
-    const socket = io(BACKEND_URL);
+    ? 'http://localhost:3000' 
+    : 'https://buzz-lightyear-backend.onrender.com'; 
+
+    const socket = io(BACKEND_URL); 
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playSound(type) {
