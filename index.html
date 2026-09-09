@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Buzz Lightyear</title>
+  <title>Buzz Lightyear - Retro 8-Bit Buzzer</title>
   <!-- 引入复古像素字体 Pixelify Sans -->
   <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -157,9 +157,12 @@
 
   <!-- Player View -->
   <div id="view-player" class="w-full max-w-md hidden text-center space-y-6">
-    <div class="arcade-card p-3 flex justify-between text-sm font-bold bg-white">
-      <span>ROOM: <strong id="display-p-room" class="text-blue-600 font-mono"></strong></span>
-      <span>PLAYER: <strong id="display-p-name" class="text-green-600"></strong></span>
+    <div class="arcade-card p-3 flex justify-between items-center text-sm font-bold bg-white">
+      <div>
+        ROOM: <strong id="display-p-room" class="text-blue-600 font-mono"></strong> | 
+        PLAYER: <strong id="display-p-name" class="text-green-600"></strong>
+      </div>
+      <button onclick="leavePlayerRoom()" class="px-2 py-1 arcade-btn btn-arcade-red text-xs">EXIT</button>
     </div>
 
     <div class="py-4 flex justify-center">
@@ -177,7 +180,15 @@
         <span class="text-xs font-bold opacity-70">HOST DASHBOARD</span>
         <h2 class="text-xl font-bold font-mono text-blue-600">ROOM: <span id="display-h-room"></span></h2>
       </div>
-      <div class="text-sm font-bold">PLAYERS: <span id="player-count" class="text-green-600">0</span></div>
+      <div class="text-sm font-bold">ONLINE PLAYERS: <span id="player-count" class="text-green-600 text-lg">0</span></div>
+    </div>
+
+    <!-- 在线玩家标签栏 -->
+    <div class="arcade-card p-3 bg-white">
+      <div class="text-xs font-bold mb-2">CONNECTED PLAYERS:</div>
+      <div id="active-players-tags" class="flex flex-wrap gap-2 text-xs min-h-[28px]">
+        <span class="text-gray-400 italic">No players connected...</span>
+      </div>
     </div>
 
     <div class="grid grid-cols-2 gap-4">
@@ -208,7 +219,6 @@
   </footer>
 
   <script>
-    // 自动判断环境：本地测试连 localhost，线上连接 Render 的后端
     const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
     ? 'http://localhost:3000' 
     : 'https://buzz-lightyear-backend.onrender.com'; 
@@ -217,18 +227,16 @@
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
-    // 复古音效合成器 (Web Audio API)
     function playSound(type) {
       if (audioCtx.state === 'suspended') audioCtx.resume();
 
       if (type === 'cheer') {
-        // 🌟 复古 8-Bit 胜利号角声 (Ta-Da Fanfare)
-        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 (胜利和弦)
+        const notes = [523.25, 659.25, 783.99, 1046.50]; 
         notes.forEach((freq, index) => {
           setTimeout(() => {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = 'triangle'; // 经典 8-Bit 游戏音效
+            osc.type = 'triangle';
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
             
             const duration = index === notes.length - 1 ? 0.6 : 0.12;
@@ -244,7 +252,6 @@
         });
 
       } else if (type === 'buzz') {
-        // 8-Bit 抢答按键声
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sawtooth';
@@ -258,7 +265,6 @@
         osc.stop(audioCtx.currentTime + 0.2);
 
       } else if (type === 'bell') {
-        // 叮咚正确提示音
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sine';
@@ -271,7 +277,6 @@
         osc.stop(audioCtx.currentTime + 0.4);
 
       } else if (type === 'wrong') {
-        // 8-Bit 错误低音蜂鸣
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'square';
@@ -314,6 +319,14 @@
       });
     }
 
+    // 玩家主动点击“EXIT”
+    function leavePlayerRoom() {
+      socket.emit('leave_room');
+      document.getElementById('view-player').classList.add('hidden');
+      document.getElementById('view-landing').classList.remove('hidden');
+      updateBuzzerState(false);
+    }
+
     function submitHostAction(action) {
       const roomCode = document.getElementById('h-room').value.trim().toUpperCase();
       const hostCode = document.getElementById('h-code').value.trim();
@@ -325,7 +338,10 @@
           document.getElementById('view-landing').classList.add('hidden');
           document.getElementById('view-host').classList.remove('hidden');
           document.getElementById('display-h-room').innerText = roomCode;
-          if (res.roomData) updateHostLeaderboard(res.roomData.buzzList);
+          if (res.roomData) {
+            updateHostLeaderboard(res.roomData.buzzList);
+            updatePlayerList(res.roomData.players || []);
+          }
         } else {
           alert(res.message);
         }
@@ -377,27 +393,56 @@
       `).join('');
     }
 
+    // ⚡ 实时更新 Host 端的在线玩家人数及名字标签
+    function updatePlayerList(players) {
+      const countEl = document.getElementById('player-count');
+      const tagsEl = document.getElementById('active-players-tags');
+      
+      if (countEl) countEl.innerText = players.length;
+      if (tagsEl) {
+        if (!players || players.length === 0) {
+          tagsEl.innerHTML = `<span class="text-gray-400 italic">No players connected...</span>`;
+        } else {
+          tagsEl.innerHTML = players.map(p => `
+            <span class="px-2.5 py-1 bg-green-100 border-2 border-black font-bold flex items-center gap-1 shadow-[2px_2px_0px_#111]">
+              🟢 ${p.name}
+            </span>
+          `).join('');
+        }
+      }
+    }
+
+    // Socket 事件监听
     socket.on('round_started', () => updateBuzzerState(true));
     socket.on('round_reset', () => {
       updateBuzzerState(false);
       updateHostLeaderboard([]);
     });
     socket.on('buzz_update', (buzzList) => updateHostLeaderboard(buzzList));
+    
+    // ⚡ 实时接收并更新 Player 人数
     socket.on('player_list_updated', (players) => {
-      const el = document.getElementById('player-count');
-      if (el) el.innerText = players.length;
+      updatePlayerList(players);
     });
+
     socket.on('play_effect', (type) => {
       if (type === 'cheer') {
         confetti({ 
           particleCount: 100, 
           spread: 70, 
           origin: { y: 0.6 },
-          colors: ['#FFFFFF', '#337ab7', '#5cb85c'] // 复古白、蓝、绿配色的烟花
+          colors: ['#FFFFFF', '#337ab7', '#5cb85c'] 
         });
         playSound('cheer');
       } else if (type === 'bell') playSound('bell');
       else if (type === 'wrong') playSound('wrong');
+    });
+
+    // ⚡ 页面关闭/刷新前通知后端立即断开
+    window.addEventListener('beforeunload', () => {
+      if (socket) {
+        socket.emit('leave_room');
+      }
     });
   </script>
 </body>
