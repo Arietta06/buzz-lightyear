@@ -176,12 +176,15 @@
 
   <!-- Player View -->
   <div id="view-player" class="w-full max-w-md hidden text-center space-y-6">
-    <div class="arcade-card p-3.5 flex justify-between items-center text-sm font-black bg-white">
-      <div>
-        ROOM: <strong id="display-p-room" class="text-[var(--bz-purple)] font-mono text-base"></strong> | 
-        PLAYER: <strong id="display-p-name" class="text-[var(--bz-green)] text-base"></strong>
+    <!-- 固定 Header 布局：固定 EXIT 按钮，超长名字截断 ellipsis -->
+    <div class="arcade-card p-3.5 flex justify-between items-center text-sm font-black bg-white gap-2">
+      <div class="flex items-center gap-1 min-w-0 flex-1 overflow-hidden text-left">
+        <span class="shrink-0">ROOM:</span>
+        <strong id="display-p-room" class="text-[var(--bz-purple)] font-mono text-base shrink-0 mr-1.5"></strong>
+        <span class="shrink-0">| PLAYER:</span>
+        <strong id="display-p-name" class="text-[var(--bz-green)] text-base truncate block min-w-0 flex-1" title=""></strong>
       </div>
-      <button onclick="leavePlayerRoom()" class="px-3 py-1.5 arcade-btn btn-arcade-red text-xs">EXIT</button>
+      <button onclick="leavePlayerRoom()" class="px-3 py-1.5 arcade-btn btn-arcade-red text-xs shrink-0">EXIT</button>
     </div>
 
     <div class="py-4 flex justify-center">
@@ -245,8 +248,8 @@
 
   <script>
     const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-    ? 'http://localhost:3000' 
-    : 'https://buzz-lightyear-backend.onrender.com'; 
+      ? 'http://localhost:3000' 
+      : 'https://buzz-lightyear-backend.onrender.com'; 
 
     const socket = io(BACKEND_URL); 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -329,7 +332,11 @@
           document.getElementById('view-landing').classList.add('hidden');
           document.getElementById('view-player').classList.remove('hidden');
           document.getElementById('display-p-room').innerText = roomCode;
-          document.getElementById('display-p-name').innerText = name;
+          
+          const pNameEl = document.getElementById('display-p-name');
+          pNameEl.innerText = name;
+          pNameEl.title = name;
+
           if (res.isCanBuzz) updateBuzzerState(true);
         } else {
           alert(res.message);
@@ -365,19 +372,19 @@
       });
     }
 
-    /* 改进后的 Delete Room 逻辑 */
+    /* 精准的 Delete Room 逻辑 */
     function deleteRoom() {
       const roomCode = document.getElementById('display-h-room').innerText.trim();
-      
-      if (confirm(`Are you sure you want to delete Room ${roomCode}? All connected players will be kicked out.`)) {
-        // 将当前的 roomCode 明确传给后端删除
+      if (confirm(`Are you sure you want to delete Room ${roomCode}? All connected players will be disconnected.`)) {
+        
+        // 显式将当前的 roomCode 传给后端，确保精准销毁
         socket.emit('delete_room', { roomCode }, (res) => {
           if (res && !res.success) {
             console.warn(res.message);
           }
         });
         
-        // 1. 立即清空界面与数据，退回主页 View
+        // 1. 立即强制退回主页 View
         document.getElementById('view-host').classList.add('hidden');
         document.getElementById('view-landing').classList.remove('hidden');
         
@@ -385,13 +392,14 @@
         document.getElementById('h-room').value = '';
         document.getElementById('h-code').value = '';
         
-        // 3. 重置列表面板状态
+        // 3. 重置列表状态
         updateHostLeaderboard([]);
         updatePlayerList([]);
         
         alert('Room deleted successfully!');
       }
     }
+
     function pressBuzzer() {
       playSound('buzz');
       if (navigator.vibrate) navigator.vibrate(100);
