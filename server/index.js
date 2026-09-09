@@ -174,28 +174,36 @@ io.on('connection', (socket) => {
   });
 
   // 8. 🗑️ Host 删除房间 (Delete Room)
-  socket.on('delete_room', (callback) => {
-    const roomCode = socket.roomCode;
+  socket.on('delete_room', (data, callback) => {
+    // 兼容回调函数的传参位置
+    const cb = typeof data === 'function' ? data : callback;
+    // 优先从前端传过来的 payload 中拿 roomCode，拿不到再从 socket.roomCode 拿
+    const roomCode = (typeof data === 'object' && data?.roomCode) ? data.roomCode : socket.roomCode;
     const room = rooms[roomCode];
 
-    if (roomCode && room && socket.isHost) {
-      console.log(`[Deleting Room] ${roomCode}...`);
+    if (roomCode && room) {
+      console.log(`[Deleting Room] Room Code: ${roomCode}`);
 
-      // 1. 向该房间内的所有客户端（玩家和 Host）广播房间已解散
+      // 1. 向该房间内的所有人（包括所有玩家）广播解散通知
       io.to(roomCode).emit('room_deleted');
 
-      // 2. 将房间内的所有连接移出该 Socket 房间频道
+      // 2. 强行将该房间里的所有 Socket 连接彻底踢出房间频道
       io.in(roomCode).socketsLeave(roomCode);
 
-      // 3. 从服务器内存中彻底摧毁房间数据
+      // 3. 从服务器内存数据源中彻底 delete 销毁房间
       delete rooms[roomCode];
 
-      if (typeof callback === 'function') {
-        callback({ success: true });
+      // 4. 清空 Host 本身的房间记录状态
+      socket.roomCode = null;
+      socket.isHost = false;
+
+      if (typeof cb === 'function') {
+        cb({ success: true });
       }
     } else {
-      if (typeof callback === 'function') {
-        callback({ success: false, message: 'Room not found or unauthorized.' });
+      console.log(`[Delete Failed] Room ${roomCode} not found.`);
+      if (typeof cb === 'function') {
+        cb({ success: false, message: 'Room not found or already deleted.' });
       }
     }
   });

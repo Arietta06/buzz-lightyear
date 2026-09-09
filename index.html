@@ -365,13 +365,19 @@
       });
     }
 
-    /* 改进后的精准 Delete Room 逻辑 */
+    /* 改进后的 Delete Room 逻辑 */
     function deleteRoom() {
-      if (confirm('Are you sure you want to delete this room? All connected players will be disconnected.')) {
-        // 向服务器发送删除指令
-        socket.emit('delete_room');
+      const roomCode = document.getElementById('display-h-room').innerText.trim();
+      
+      if (confirm(`Are you sure you want to delete Room ${roomCode}? All connected players will be kicked out.`)) {
+        // 将当前的 roomCode 明确传给后端删除
+        socket.emit('delete_room', { roomCode }, (res) => {
+          if (res && !res.success) {
+            console.warn(res.message);
+          }
+        });
         
-        // 1. 立即强制退回主页 View
+        // 1. 立即清空界面与数据，退回主页 View
         document.getElementById('view-host').classList.add('hidden');
         document.getElementById('view-landing').classList.remove('hidden');
         
@@ -386,7 +392,6 @@
         alert('Room deleted successfully!');
       }
     }
-
     function pressBuzzer() {
       playSound('buzz');
       if (navigator.vibrate) navigator.vibrate(100);
