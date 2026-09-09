@@ -3,219 +3,291 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Buzz Lightyear - Retro 8-Bit Buzzer</title>
-  <!-- 引入复古像素字体 Pixelify Sans -->
-  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&display=swap" rel="stylesheet">
+  <title>Space Ranger - Buzz Lightyear Command Buzzer</title>
+  <!-- 引入现代科技感与工业机甲风格字体 -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   
   <style>
     :root {
-      --pixel-font: 'Pixelify Sans', cursive, sans-serif;
-      --bg-color: #fcfcfc;        /* 纯白 */
-      --text-main: #111111;       /* 黑色 */
-      --border-color: #111111;    /* 黑色粗边框 */
+      --font-header: 'Orbitron', sans-serif;
+      --font-body: 'Rajdhani', sans-serif;
       
-      --arcade-green: #5cb85c;   /* 复古绿 */
-      --arcade-green-hover: #4cae4c; 
-      --arcade-blue: #337ab7;    /* 复古蓝 */
-      --arcade-blue-hover: #2e6da4;
-      --arcade-red: #d9534f;     /* 复古红 */
-      --arcade-red-hover: #c9302c;
-      
-      --pixel-shadow: 4px 4px 0px #111111;
-      --pixel-shadow-sm: 2px 2px 0px #111111;
-      --pixel-button-push: translate(2px, 2px);
+      /* 巴斯光年核心调色板 */
+      --bz-white: #F4F6F9;          /* 科技白 */
+      --bz-green: #39FF14;          /* 太空荧光绿 */
+      --bz-green-dark: #27B80C;
+      --bz-purple: #7B2CBF;         /* 星际紫 */
+      --bz-purple-dark: #5A189A;
+      --bz-red: #FF0055;            /* 激光红 */
+      --bz-yellow: #FFD000;         /* 警示黄 */
+      --bz-dark-metal: #1A1C23;     /* 衬底深色金属 */
+      --bz-border-gray: #B8C2CC;
     }
 
     * {
-      font-family: var(--pixel-font) !important;
       box-sizing: border-box;
+      font-family: var(--font-body);
+    }
+
+    h1, h2, h3, .font-orbitron {
+      font-family: var(--font-header) !important;
     }
 
     body {
-      background-color: var(--bg-color);
-      color: var(--text-main);
-      /* 复古网格底纹 */
+      background-color: var(--bz-dark-metal);
+      color: var(--bz-white);
+      /* 太空舱科幻网格底纹与网格光晕 */
       background-image: 
-        linear-gradient(90deg, #f0f0f0 1px, transparent 1px),
-        linear-gradient(#f0f0f0 1px, transparent 1px);
-      background-size: 12px 12px;
+        radial-gradient(circle at 50% 30%, rgba(123, 44, 191, 0.25) 0%, transparent 70%),
+        linear-gradient(0deg, rgba(57, 255, 20, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(57, 255, 20, 0.05) 1px, transparent 1px);
+      background-size: 100% 100%, 24px 24px, 24px 24px;
     }
 
-    /* 复古卡片容器 */
-    .arcade-card {
-      background: #FFFFFF;
-      border: 4px solid var(--border-color);
-      border-radius: 0 !important;
-      box-shadow: var(--pixel-shadow);
+    /* 3D 巴斯光年卡片容器（太空舱装甲质感） */
+    .ranger-card {
+      background: linear-gradient(145deg, #ffffff 0%, var(--bz-white) 100%);
+      color: var(--bz-dark-metal);
+      border: 4px solid var(--bz-border-gray);
+      border-radius: 16px;
+      box-shadow: 
+        0 12px 30px rgba(0,0,0,0.5),
+        inset 0 2px 0 rgba(255,255,255,1),
+        0 0 0 4px var(--bz-purple);
+      position: relative;
+      overflow: hidden;
     }
 
-    /* 复古输入框 */
-    .arcade-input {
-      border: 3px solid var(--border-color);
-      border-radius: 0 !important;
+    /* 警示斜纹装饰条 (Hazard Stripes) */
+    .hazard-stripe {
+      background: repeating-linear-gradient(
+        45deg,
+        var(--bz-yellow),
+        var(--bz-yellow) 10px,
+        var(--bz-dark-metal) 10px,
+        var(--bz-dark-metal) 20px
+      );
+    }
+
+    /* 输入框样式（带有塑料模具切角感） */
+    .ranger-input {
+      border: 3px solid var(--bz-purple);
+      border-radius: 8px;
       background-color: #FFFFFF;
-      color: var(--text-main);
-      transition: all 0.1s;
+      color: var(--bz-dark-metal);
+      font-family: var(--font-header);
+      transition: all 0.2s;
     }
-    .arcade-input:focus {
+    .ranger-input:focus {
       outline: none;
-      border-color: var(--arcade-blue);
-      background-color: #fafaff;
+      border-color: var(--bz-green-dark);
+      box-shadow: 0 0 12px rgba(57, 255, 20, 0.6);
     }
 
-    /* 复古按钮基础类 */
-    .arcade-btn {
-      border: 3px solid var(--border-color);
-      border-radius: 0 !important;
-      box-shadow: var(--pixel-shadow);
-      font-weight: 700;
+    /* 类似巴斯光年胸前/装备上的实体 3D 按钮 */
+    .ranger-btn {
+      border: 2px solid rgba(255,255,255,0.4);
+      border-radius: 10px;
+      font-family: var(--font-header);
+      font-weight: 800;
+      letter-spacing: 1px;
       text-transform: uppercase;
-      transition: all 0.1s;
+      transition: all 0.15s ease;
       cursor: pointer;
+      position: relative;
+      box-shadow: 
+        0 6px 0 rgba(0, 0, 0, 0.4),
+        inset 0 2px 0 rgba(255, 255, 255, 0.5);
     }
-    .arcade-btn:active:not(:disabled) {
-      transform: var(--pixel-button-push);
-      box-shadow: var(--pixel-shadow-sm);
+    .ranger-btn:active:not(:disabled) {
+      transform: translateY(4px);
+      box-shadow: 
+        0 2px 0 rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
     }
 
-    /* 按钮主题色 */
-    .btn-arcade-blue { background-color: var(--arcade-blue); color: #fff; }
-    .btn-arcade-blue:hover { background-color: var(--arcade-blue-hover); }
-
-    .btn-arcade-green { background-color: var(--arcade-green); color: #fff; }
-    .btn-arcade-green:hover { background-color: var(--arcade-green-hover); }
-
-    .btn-arcade-red { background-color: var(--arcade-red); color: #fff; }
-    .btn-arcade-red:hover { background-color: var(--arcade-red-hover); }
-
-    .btn-arcade-gray { background-color: #e6e6e6; color: #111; }
-    .btn-arcade-gray:hover { background-color: #cccccc; }
-
-    /* 抢答按钮动画 */
-    @keyframes pixel-glow {
-      0%, 100% { box-shadow: 0 0 0px #111, var(--pixel-shadow); }
-      50% { box-shadow: 0 0 15px var(--arcade-green), var(--pixel-shadow); }
+    /* 按钮主题色彩（注塑塑料/金属色彩） */
+    .btn-ranger-purple {
+      background: linear-gradient(180deg, var(--bz-purple) 0%, var(--bz-purple-dark) 100%);
+      color: #FFF;
+      border-bottom: 4px solid #3c096c;
     }
-    .buzzer-active {
-      animation: pixel-glow 1.2s infinite;
-      background-color: var(--arcade-green) !important;
-      color: #FFFFFF !important;
+    .btn-ranger-green {
+      background: linear-gradient(180deg, var(--bz-green) 0%, var(--bz-green-dark) 100%);
+      color: #052e00;
+      border-bottom: 4px solid #1a7a05;
+    }
+    .btn-ranger-red {
+      background: linear-gradient(180deg, #ff4d6d 0%, var(--bz-red) 100%);
+      color: #FFF;
+      border-bottom: 4px solid #a70032;
+    }
+    .btn-ranger-gray {
+      background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
+      color: #334155;
+      border-bottom: 4px solid #94a3b8;
+    }
+
+    /* 核心“巴斯光年红外激光发射器”抢答按钮 */
+    .laser-buzzer {
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #ff758f 0%, #ff0055 50%, #800020 100%);
+      border: 10px solid #FFFFFF;
+      box-shadow: 
+        0 0 0 6px var(--bz-purple),
+        0 15px 25px rgba(0,0,0,0.6),
+        inset 0 10px 15px rgba(255,255,255,0.6),
+        inset 0 -10px 15px rgba(0,0,0,0.4);
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    /* 激活状态：荧光绿核聚变充能动画 */
+    .laser-buzzer-active {
+      background: radial-gradient(circle at 35% 35%, #9dffb0 0%, var(--bz-green) 50%, var(--bz-green-dark) 100%) !important;
+      animation: hyper-pulse 1.2s infinite alternate;
+      cursor: pointer !important;
+    }
+
+    @keyframes hyper-pulse {
+      0% {
+        box-shadow: 
+          0 0 0 6px var(--bz-yellow),
+          0 0 25px var(--bz-green),
+          inset 0 10px 15px rgba(255,255,255,0.8);
+        transform: scale(1);
+      }
+      100% {
+        box-shadow: 
+          0 0 0 10px var(--bz-yellow),
+          0 0 50px var(--bz-green),
+          inset 0 10px 25px rgba(255,255,255,1);
+        transform: scale(1.04);
+      }
     }
   </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-4">
 
-  <!-- Header -->
-  <header class="mb-8 text-center">
-    <div class="inline-block px-3 py-1 bg-white border-2 border-black text-black text-xs font-bold mb-3 shadow-[2px_2px_0px_#111]">
+  <!-- Header Header：星际发射舱主题 -->
+  <header class="mb-8 text-center relative">
+    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/60 border-2 border-[var(--bz-green)] text-[var(--bz-green)] text-xs font-bold mb-3 shadow-[0_0_15px_rgba(57,255,20,0.3)]">
+      <span class="w-2 h-2 rounded-full bg-[var(--bz-green)] animate-ping"></span>
       🚀 TO INFINITY AND... BUZZ FIRST!
     </div>
-    <h1 class="text-4xl sm:text-5xl font-black tracking-wider text-black drop-shadow-[3px_3px_0px_#aaa]">
-      BUZZ LIGHTYEAR
+    <h1 class="text-4xl sm:text-6xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-white via-[var(--bz-white)] to-[var(--bz-border-gray)] drop-shadow-[0_4px_10px_rgba(123,44,191,0.8)]">
+      SPACE RANGER
     </h1>
+    <p class="text-xs font-bold tracking-[0.3em] text-[var(--bz-yellow)] uppercase mt-1">Star Command Buzzer System</p>
   </header>
 
   <!-- Landing View -->
-  <div id="view-landing" class="w-full max-w-md arcade-card p-6">
-    <div class="flex gap-2 mb-6">
-      <button id="tab-player-btn" onclick="switchTab('player')" class="flex-1 py-2 arcade-btn btn-arcade-blue text-sm">Player Join</button>
-      <button id="tab-host-btn" onclick="switchTab('host')" class="flex-1 py-2 arcade-btn btn-arcade-gray text-sm">Host Dashboard</button>
+  <div id="view-landing" class="w-full max-w-md ranger-card p-6">
+    <div class="h-2 w-full hazard-stripe -mt-6 -mx-6 mb-6"></div>
+
+    <div class="flex gap-2 mb-6 p-1 bg-slate-200 rounded-xl">
+      <button id="tab-player-btn" onclick="switchTab('player')" class="flex-1 py-2.5 ranger-btn btn-ranger-purple text-xs sm:text-sm">Ranger Cadet</button>
+      <button id="tab-host-btn" onclick="switchTab('host')" class="flex-1 py-2.5 ranger-btn btn-ranger-gray text-xs sm:text-sm">Star Command (Host)</button>
     </div>
 
     <!-- Player Join Form -->
     <form id="form-player" onsubmit="handlePlayerJoin(event)" class="space-y-4">
       <div>
-        <label class="block text-xs font-bold mb-1">ROOM CODE</label>
-        <input type="text" id="p-room" required placeholder="E.G. 8888" class="w-full px-4 py-3 arcade-input font-mono text-lg uppercase">
+        <label class="block text-xs font-bold mb-1 text-slate-700 tracking-wider">SECTOR CODE (ROOM)</label>
+        <input type="text" id="p-room" required placeholder="E.G. 8888" class="w-full px-4 py-3 ranger-input text-lg uppercase tracking-widest">
       </div>
       <div>
-        <label class="block text-xs font-bold mb-1">YOUR NICKNAME</label>
-        <input type="text" id="p-name" required placeholder="E.G. ALEX" class="w-full px-4 py-3 arcade-input text-lg">
+        <label class="block text-xs font-bold mb-1 text-slate-700 tracking-wider">CADET CALLSIGN (NAME)</label>
+        <input type="text" id="p-name" required placeholder="E.G. BUZZ" class="w-full px-4 py-3 ranger-input text-lg">
       </div>
-      <button type="submit" class="w-full py-3.5 arcade-btn btn-arcade-green text-lg mt-2">ENTER ROOM</button>
+      <button type="submit" class="w-full py-4 ranger-btn btn-ranger-green text-lg mt-2">INITIALIZE CADET</button>
     </form>
 
     <!-- Host Form -->
     <form id="form-host" class="space-y-4 hidden">
       <div>
-        <label class="block text-xs font-bold mb-1">ROOM CODE</label>
-        <input type="text" id="h-room" required placeholder="E.G. 8888" class="w-full px-4 py-3 arcade-input font-mono text-lg uppercase">
+        <label class="block text-xs font-bold mb-1 text-slate-700 tracking-wider">SECTOR CODE (ROOM)</label>
+        <input type="text" id="h-room" required placeholder="E.G. 8888" class="w-full px-4 py-3 ranger-input text-lg uppercase tracking-widest">
       </div>
       <div>
-        <label class="block text-xs font-bold mb-1">SECURITY CODE (HOST PASSCODE)</label>
-        <input type="password" id="h-code" required placeholder="••••••••" class="w-full px-4 py-3 arcade-input text-lg">
+        <label class="block text-xs font-bold mb-1 text-slate-700 tracking-wider">SECURITY CLEARANCE PASSCODE</label>
+        <input type="password" id="h-code" required placeholder="••••••••" class="w-full px-4 py-3 ranger-input text-lg">
       </div>
       <div class="flex gap-2 pt-2">
-        <button type="button" onclick="submitHostAction('create')" class="flex-1 py-3 arcade-btn btn-arcade-green text-xs sm:text-sm">Create Room</button>
-        <button type="button" onclick="submitHostAction('login')" class="flex-1 py-3 arcade-btn btn-arcade-blue text-xs sm:text-sm">Re-login Host</button>
+        <button type="button" onclick="submitHostAction('create')" class="flex-1 py-3 ranger-btn btn-ranger-green text-xs">Establish Command</button>
+        <button type="button" onclick="submitHostAction('login')" class="flex-1 py-3 ranger-btn btn-ranger-purple text-xs">Re-login Commander</button>
       </div>
     </form>
   </div>
 
   <!-- Player View -->
   <div id="view-player" class="w-full max-w-md hidden text-center space-y-6">
-    <div class="arcade-card p-3 flex justify-between items-center text-sm font-bold bg-white">
-      <div>
-        ROOM: <strong id="display-p-room" class="text-blue-600 font-mono"></strong> | 
-        PLAYER: <strong id="display-p-name" class="text-green-600"></strong>
+    <div class="ranger-card p-3 flex justify-between items-center text-xs font-bold">
+      <div class="tracking-wider">
+        SECTOR: <strong id="display-p-room" class="text-[var(--bz-purple)] font-mono text-sm"></strong> | 
+        CADET: <strong id="display-p-name" class="text-[var(--bz-green-dark)] text-sm"></strong>
       </div>
-      <button onclick="leavePlayerRoom()" class="px-2 py-1 arcade-btn btn-arcade-red text-xs">EXIT</button>
+      <button onclick="leavePlayerRoom()" class="px-3 py-1 ranger-btn btn-ranger-red text-xs">ABORT</button>
     </div>
 
-    <div class="py-4 flex justify-center">
-      <button id="buzzer-btn" onclick="pressBuzzer()" disabled class="w-60 h-60 border-4 border-black bg-gray-200 text-gray-500 text-3xl font-black flex items-center justify-center select-none cursor-not-allowed shadow-[4px_4px_0px_#111]">
-        LOCKED 🔒
+    <!-- 圆形 3D 巴斯光年按钮 -->
+    <div class="py-6 flex justify-center items-center">
+      <button id="buzzer-btn" onclick="pressBuzzer()" disabled class="laser-buzzer opacity-50 flex flex-col items-center justify-center select-none cursor-not-allowed">
+        <span class="text-3xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] font-orbitron">LOCKED</span>
+        <span class="text-xs font-bold text-white/80 mt-1">STAR COMMAND</span>
       </button>
     </div>
-    <div id="player-status" class="font-bold text-sm h-6">Waiting for Host to start...</div>
+    
+    <div id="player-status" class="font-bold text-sm h-6 text-slate-400 tracking-wider">Standby for Star Command authorization...</div>
   </div>
 
   <!-- Host View -->
   <div id="view-host" class="w-full max-w-2xl hidden space-y-6">
-    <div class="arcade-card p-4 flex justify-between items-center bg-white">
+    <div class="ranger-card p-4 flex justify-between items-center">
       <div>
-        <span class="text-xs font-bold opacity-70">HOST DASHBOARD</span>
-        <h2 class="text-xl font-bold font-mono text-blue-600">ROOM: <span id="display-h-room"></span></h2>
+        <span class="text-xs font-bold opacity-60 tracking-widest text-slate-600 block">STAR COMMAND DASHBOARD</span>
+        <h2 class="text-xl font-bold font-mono text-[var(--bz-purple-dark)]">SECTOR: <span id="display-h-room"></span></h2>
       </div>
-      <div class="text-sm font-bold">ONLINE PLAYERS: <span id="player-count" class="text-green-600 text-lg">0</span></div>
+      <div class="text-xs font-bold text-slate-600">ACTIVE CADETS: <span id="player-count" class="text-[var(--bz-green-dark)] text-2xl font-black font-mono">0</span></div>
     </div>
 
     <!-- 在线玩家标签栏 -->
-    <div class="arcade-card p-3 bg-white">
-      <div class="text-xs font-bold mb-2">CONNECTED PLAYERS:</div>
-      <div id="active-players-tags" class="flex flex-wrap gap-2 text-xs min-h-[28px]">
-        <span class="text-gray-400 italic">No players connected...</span>
+    <div class="ranger-card p-4">
+      <div class="text-xs font-bold text-slate-600 mb-2 tracking-wider">DEPLOYED RANGERS:</div>
+      <div id="active-players-tags" class="flex flex-wrap gap-2 text-xs min-h-[32px]">
+        <span class="text-slate-400 italic">No rangers connected to this sector...</span>
       </div>
     </div>
 
     <div class="grid grid-cols-2 gap-4">
-      <button onclick="socket.emit('start_round')" class="py-4 arcade-btn btn-arcade-green text-lg">🚀 START ROUND</button>
-      <button onclick="socket.emit('reset_round')" class="py-4 arcade-btn btn-arcade-red text-lg">🔄 RESET / CLEAR</button>
+      <button onclick="socket.emit('start_round')" class="py-4 ranger-btn btn-ranger-green text-base sm:text-lg">🚀 ENGAGE ROUND</button>
+      <button onclick="socket.emit('reset_round')" class="py-4 ranger-btn btn-ranger-red text-base sm:text-lg">🔄 RESET SECTOR</button>
     </div>
 
-    <div class="arcade-card p-4 space-y-3 bg-white">
-      <span class="text-xs font-bold tracking-wider block border-b-2 border-black pb-1">HOST FX & AUDIO TRIGGER</span>
+    <div class="ranger-card p-4 space-y-3">
+      <span class="text-xs font-bold tracking-widest text-slate-600 block border-b border-slate-300 pb-1">COMMAND AUDIO & LASER TRIGGERS</span>
       <div class="grid grid-cols-3 gap-2">
-        <button onclick="triggerEffect('cheer')" class="py-2.5 arcade-btn btn-arcade-blue text-xs">🎉 Confetti & Cheer</button>
-        <button onclick="triggerEffect('bell')" class="py-2.5 arcade-btn btn-arcade-green text-xs">🔔 Correct Bell</button>
-        <button onclick="triggerEffect('wrong')" class="py-2.5 arcade-btn btn-arcade-red text-xs">❌ Wrong Buzzer</button>
+        <button onclick="triggerEffect('cheer')" class="py-3 ranger-btn btn-ranger-purple text-xs">🎉 Victory Cheer</button>
+        <button onclick="triggerEffect('bell')" class="py-3 ranger-btn btn-ranger-green text-xs">🔔 Target Hit</button>
+        <button onclick="triggerEffect('wrong')" class="py-3 ranger-btn btn-ranger-red text-xs">❌ Laser Miss</button>
       </div>
     </div>
 
-    <div class="arcade-card p-5 space-y-3 bg-white">
-      <h3 class="font-bold text-sm border-b-2 border-black pb-1">FASTEST BUZZERS</h3>
+    <div class="ranger-card p-5 space-y-3">
+      <h3 class="font-bold text-sm text-slate-700 border-b border-slate-300 pb-2 tracking-wider">TELEMETRY - FASTEST BUZZERS</h3>
       <div id="buzz-list" class="space-y-2 min-h-[120px]">
-        <div class="text-gray-500 text-center text-sm py-8">No buzzes yet in this round.</div>
+        <div class="text-slate-400 text-center text-sm py-8">No laser locks registered in this cycle.</div>
       </div>
     </div>
   </div>
 
-  <footer class="mt-8 text-center text-xs font-bold">
-    <p>⚡ <strong>BUZZ LIGHTYEAR</strong> - TO INFINITY AND SECOND PLACE!</p>
-    <p class="mt-1 opacity-60">Not affiliated with Disney/Pixar. Just a fun tool for classroom & party games.</p>
+  <footer class="mt-8 text-center text-xs font-bold text-slate-400">
+    <p>⚡ <strong>STAR COMMAND BUZZER</strong> - TO INFINITY AND BEYOND!</p>
+    <p class="mt-1 opacity-50">Not affiliated with Disney/Pixar. Designed for Interactive Games & Events.</p>
   </footer>
 
   <script>
@@ -227,19 +299,20 @@
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
+    // 升级音效：充满科幻激光与星际通信感
     function playSound(type) {
       if (audioCtx.state === 'suspended') audioCtx.resume();
 
       if (type === 'cheer') {
-        const notes = [523.25, 659.25, 783.99, 1046.50]; 
+        const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51]; 
         notes.forEach((freq, index) => {
           setTimeout(() => {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = 'triangle';
+            osc.type = 'sine';
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
             
-            const duration = index === notes.length - 1 ? 0.6 : 0.12;
+            const duration = index === notes.length - 1 ? 0.8 : 0.12;
             gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
             
@@ -248,39 +321,45 @@
             
             osc.start();
             osc.stop(audioCtx.currentTime + duration);
-          }, index * 100);
+          }, index * 90);
         });
 
       } else if (type === 'buzz') {
+        // 经典激光枪发声 (Laser Blast Sound)
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.2);
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(110, audioCtx.currentTime + 0.25);
+        
+        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+        
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start(); 
-        osc.stop(audioCtx.currentTime + 0.2);
+        osc.stop(audioCtx.currentTime + 0.25);
 
       } else if (type === 'bell') {
+        // 目标锁定音
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(987.77, audioCtx.currentTime);
         gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start(); 
-        osc.stop(audioCtx.currentTime + 0.4);
+        osc.stop(audioCtx.currentTime + 0.3);
 
       } else if (type === 'wrong') {
+        // 警告提示音
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'square';
-        osc.frequency.setValueAtTime(130, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(100, audioCtx.currentTime + 0.15);
         gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
         osc.connect(gain);
@@ -297,8 +376,8 @@
       const tabPlayer = document.getElementById('tab-player-btn');
       const tabHost = document.getElementById('tab-host-btn');
       
-      tabPlayer.className = tab === 'player' ? 'flex-1 py-2 arcade-btn btn-arcade-blue text-sm' : 'flex-1 py-2 arcade-btn btn-arcade-gray text-sm';
-      tabHost.className = tab === 'host' ? 'flex-1 py-2 arcade-btn btn-arcade-blue text-sm' : 'flex-1 py-2 arcade-btn btn-arcade-gray text-sm';
+      tabPlayer.className = tab === 'player' ? 'flex-1 py-2.5 ranger-btn btn-ranger-purple text-xs sm:text-sm' : 'flex-1 py-2.5 ranger-btn btn-ranger-gray text-xs sm:text-sm';
+      tabHost.className = tab === 'host' ? 'flex-1 py-2.5 ranger-btn btn-ranger-purple text-xs sm:text-sm' : 'flex-1 py-2.5 ranger-btn btn-ranger-gray text-xs sm:text-sm';
     }
 
     function handlePlayerJoin(e) {
@@ -319,7 +398,6 @@
       });
     }
 
-    // 玩家主动点击“EXIT”
     function leavePlayerRoom() {
       socket.emit('leave_room');
       document.getElementById('view-player').classList.add('hidden');
@@ -330,7 +408,7 @@
     function submitHostAction(action) {
       const roomCode = document.getElementById('h-room').value.trim().toUpperCase();
       const hostCode = document.getElementById('h-code').value.trim();
-      if (!roomCode || !hostCode) return alert('Please enter both Room Code and Security Code!');
+      if (!roomCode || !hostCode) return alert('Please enter both Sector Code and Security Passcode!');
 
       const eventName = action === 'create' ? 'create_room' : 'host_login';
       socket.emit(eventName, { roomCode, hostCode }, (res) => {
@@ -350,9 +428,9 @@
 
     function pressBuzzer() {
       playSound('buzz');
-      if (navigator.vibrate) navigator.vibrate(100);
+      if (navigator.vibrate) navigator.vibrate(120);
       socket.emit('press_buzzer');
-      updateBuzzerState(false, "BUZZED IN!");
+      updateBuzzerState(false, "LASER LOCKED!");
     }
 
     function triggerEffect(type) {
@@ -364,36 +442,41 @@
       const status = document.getElementById('player-status');
       btn.disabled = !enabled;
       if (enabled) {
-        btn.className = "w-60 h-60 border-4 border-black text-3xl font-black flex items-center justify-center select-none cursor-pointer arcade-btn buzzer-active";
-        btn.innerText = "BUZZ!";
-        status.innerText = "READY! PRESS TO BUZZ!";
-        status.className = "font-bold text-sm h-6 text-green-600";
+        btn.className = "laser-buzzer laser-buzzer-active flex flex-col items-center justify-center select-none";
+        btn.innerHTML = `
+          <span class="text-4xl font-black text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] font-orbitron">FIRE!</span>
+          <span class="text-xs font-bold text-black/80 tracking-widest mt-1">LASER READY</span>
+        `;
+        status.innerText = "WEAPON CHARGED! PRESS TO FIRE BUZZER!";
+        status.className = "font-bold text-sm h-6 text-[var(--bz-green-dark)] tracking-wider animate-pulse";
       } else {
-        btn.className = "w-60 h-60 border-4 border-black bg-gray-200 text-gray-500 text-3xl font-black flex items-center justify-center select-none cursor-not-allowed shadow-[4px_4px_0px_#111]";
-        btn.innerText = statusText || "LOCKED 🔒";
-        status.innerText = statusText ? "YOU HAVE BUZZED IN!" : "WAITING FOR NEXT ROUND...";
-        status.className = "font-bold text-sm h-6 text-gray-500";
+        btn.className = "laser-buzzer opacity-60 flex flex-col items-center justify-center select-none cursor-not-allowed";
+        btn.innerHTML = `
+          <span class="text-2xl font-black text-white/80 font-orbitron">${statusText || "STANDBY"}</span>
+          <span class="text-xs font-bold text-white/60 tracking-widest mt-1">STAR COMMAND</span>
+        `;
+        status.innerText = statusText ? "LASER TRANSMITTED TO COMMAND!" : "STANDBY FOR NEXT SECTOR DISPATCH...";
+        status.className = "font-bold text-sm h-6 text-slate-400 tracking-wider";
       }
     }
 
     function updateHostLeaderboard(list) {
       const container = document.getElementById('buzz-list');
       if (!list || list.length === 0) {
-        container.innerHTML = `<div class="text-gray-500 text-center text-sm py-8">No buzzes yet in this round.</div>`;
+        container.innerHTML = `<div class="text-slate-400 text-center text-sm py-8">No laser locks registered in this cycle.</div>`;
         return;
       }
       container.innerHTML = list.map((item, idx) => `
-        <div class="flex justify-between items-center p-3 border-2 border-black ${idx === 0 ? 'bg-amber-100 text-black shadow-[2px_2px_0px_#111]' : 'bg-gray-50 text-black'}">
+        <div class="flex justify-between items-center p-3 rounded-xl border-2 ${idx === 0 ? 'bg-gradient-to-r from-amber-100 to-yellow-50 border-amber-400 shadow-md' : 'bg-slate-50 border-slate-200'}">
           <div class="flex items-center gap-3">
-            <span class="w-7 h-7 border-2 border-black flex items-center justify-center font-bold text-xs ${idx === 0 ? 'bg-amber-400 text-black' : 'bg-gray-300'}">${item.rank}</span>
-            <span class="font-bold">${item.name}</span>
+            <span class="w-8 h-8 rounded-lg font-orbitron flex items-center justify-center font-bold text-xs ${idx === 0 ? 'bg-[var(--bz-yellow)] text-black shadow' : 'bg-slate-200 text-slate-700'}">${item.rank}</span>
+            <span class="font-bold text-slate-800">${item.name}</span>
           </div>
-          <span class="font-mono text-xs opacity-70">${item.time}</span>
+          <span class="font-mono text-xs font-bold text-slate-500">${item.time}</span>
         </div>
       `).join('');
     }
 
-    // ⚡ 实时更新 Host 端的在线玩家人数及名字标签
     function updatePlayerList(players) {
       const countEl = document.getElementById('player-count');
       const tagsEl = document.getElementById('active-players-tags');
@@ -401,11 +484,12 @@
       if (countEl) countEl.innerText = players.length;
       if (tagsEl) {
         if (!players || players.length === 0) {
-          tagsEl.innerHTML = `<span class="text-gray-400 italic">No players connected...</span>`;
+          tagsEl.innerHTML = `<span class="text-slate-400 italic">No rangers connected to this sector...</span>`;
         } else {
           tagsEl.innerHTML = players.map(p => `
-            <span class="px-2.5 py-1 bg-green-100 border-2 border-black font-bold flex items-center gap-1 shadow-[2px_2px_0px_#111]">
-              🟢 ${p.name}
+            <span class="px-3 py-1.5 bg-emerald-50 border border-emerald-300 rounded-lg text-emerald-800 font-bold flex items-center gap-1.5 shadow-sm">
+              <span class="w-2 h-2 rounded-full bg-[var(--bz-green-dark)] animate-ping"></span>
+              ${p.name}
             </span>
           `).join('');
         }
@@ -419,30 +503,23 @@
       updateHostLeaderboard([]);
     });
     socket.on('buzz_update', (buzzList) => updateHostLeaderboard(buzzList));
-    
-    // ⚡ 实时接收并更新 Player 人数
-    socket.on('player_list_updated', (players) => {
-      updatePlayerList(players);
-    });
+    socket.on('player_list_updated', (players) => updatePlayerList(players));
 
     socket.on('play_effect', (type) => {
       if (type === 'cheer') {
         confetti({ 
-          particleCount: 100, 
-          spread: 70, 
+          particleCount: 120, 
+          spread: 80, 
           origin: { y: 0.6 },
-          colors: ['#FFFFFF', '#337ab7', '#5cb85c'] 
+          colors: ['#39FF14', '#7B2CBF', '#FF0055', '#FFD000', '#FFFFFF'] 
         });
         playSound('cheer');
       } else if (type === 'bell') playSound('bell');
       else if (type === 'wrong') playSound('wrong');
     });
 
-    // ⚡ 页面关闭/刷新前通知后端立即断开
     window.addEventListener('beforeunload', () => {
-      if (socket) {
-        socket.emit('leave_room');
-      }
+      if (socket) socket.emit('leave_room');
     });
   </script>
 </body>
