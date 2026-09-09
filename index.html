@@ -121,6 +121,19 @@
       0% { box-shadow: 0 0 0 6px var(--bz-yellow), 0 0 30px var(--bz-green); transform: scale(1); }
       100% { box-shadow: 0 0 0 10px var(--bz-yellow), 0 0 50px var(--bz-green); transform: scale(1.04); }
     }
+
+    /* 美化自定义滚动条 */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #F1F5F9;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #94A3B8;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-4">
@@ -176,7 +189,6 @@
 
   <!-- Player View -->
   <div id="view-player" class="w-full max-w-md hidden text-center space-y-6">
-    <!-- 固定 Header 布局：固定 EXIT 按钮，超长名字截断 ellipsis -->
     <div class="arcade-card p-3.5 flex justify-between items-center text-sm font-black bg-white gap-2">
       <div class="flex items-center gap-1 min-w-0 flex-1 overflow-hidden text-left">
         <span class="shrink-0">ROOM:</span>
@@ -205,10 +217,21 @@
       <div class="text-sm font-black">ONLINE PLAYERS: <span id="player-count" class="text-[var(--bz-green)] text-2xl font-black">0</span></div>
     </div>
 
+    <!-- 可隐藏/收起 Connected Players 列表区域 -->
     <div class="arcade-card p-4 bg-white">
-      <div class="text-xs font-black mb-2 tracking-wider">CONNECTED PLAYERS:</div>
-      <div id="active-players-tags" class="flex flex-wrap gap-2 text-xs min-h-[28px]">
-        <span class="text-gray-400 italic font-bold">No players connected...</span>
+      <div class="flex justify-between items-center mb-2">
+        <div class="text-xs font-black tracking-wider uppercase">CONNECTED PLAYERS:</div>
+        <!-- Toggle Switch 按钮 -->
+        <button id="toggle-players-btn" onclick="togglePlayerListVisibility()" class="px-2.5 py-1 arcade-btn btn-arcade-gray text-xs flex items-center gap-1">
+          🙈 HIDE LIST
+        </button>
+      </div>
+
+      <!-- 可折叠的容器 + 最大高度限制滚动条 -->
+      <div id="players-wrapper" class="transition-all duration-200">
+        <div id="active-players-tags" class="flex flex-wrap gap-2 text-xs min-h-[28px] max-h-36 overflow-y-auto custom-scrollbar pr-1">
+          <span class="text-gray-400 italic font-bold">No players connected...</span>
+        </div>
       </div>
     </div>
 
@@ -254,6 +277,10 @@
     const socket = io(BACKEND_URL); 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
+    // 跟踪玩家列表显隐状态
+    let isPlayerListHidden = false;
+    let currentPlayers = [];
+
     function playSound(type) {
       if (audioCtx.state === 'suspended') audioCtx.resume();
 
@@ -372,27 +399,39 @@
       });
     }
 
-    /* 精准的 Delete Room 逻辑 */
+    /* 切换玩家列表的显隐状态 */
+    function togglePlayerListVisibility() {
+      isPlayerListHidden = !isPlayerListHidden;
+      const wrapper = document.getElementById('players-wrapper');
+      const btn = document.getElementById('toggle-players-btn');
+      const count = currentPlayers ? currentPlayers.length : 0;
+
+      if (isPlayerListHidden) {
+        wrapper.classList.add('hidden');
+        btn.innerText = `👁️ SHOW (${count})`;
+      } else {
+        wrapper.classList.remove('hidden');
+        btn.innerText = `🙈 HIDE LIST`;
+      }
+    }
+
+    /* Delete Room 逻辑 */
     function deleteRoom() {
       const roomCode = document.getElementById('display-h-room').innerText.trim();
       if (confirm(`Are you sure you want to delete Room ${roomCode}? All connected players will be disconnected.`)) {
         
-        // 显式将当前的 roomCode 传给后端，确保精准销毁
         socket.emit('delete_room', { roomCode }, (res) => {
           if (res && !res.success) {
             console.warn(res.message);
           }
         });
         
-        // 1. 立即强制退回主页 View
         document.getElementById('view-host').classList.add('hidden');
         document.getElementById('view-landing').classList.remove('hidden');
         
-        // 2. 清空 Host 表单
         document.getElementById('h-room').value = '';
         document.getElementById('h-code').value = '';
         
-        // 3. 重置列表状态
         updateHostLeaderboard([]);
         updatePlayerList([]);
         
@@ -446,15 +485,23 @@
     }
 
     function updatePlayerList(players) {
+      currentPlayers = players || [];
       const countEl = document.getElementById('player-count');
       const tagsEl = document.getElementById('active-players-tags');
+      const btn = document.getElementById('toggle-players-btn');
       
-      if (countEl) countEl.innerText = players ? players.length : 0;
+      const count = currentPlayers.length;
+      if (countEl) countEl.innerText = count;
+
+      if (isPlayerListHidden && btn) {
+        btn.innerText = `👁️ SHOW (${count})`;
+      }
+
       if (tagsEl) {
-        if (!players || players.length === 0) {
+        if (count === 0) {
           tagsEl.innerHTML = `<span class="text-gray-400 italic font-bold">No players connected...</span>`;
         } else {
-          tagsEl.innerHTML = players.map(p => `
+          tagsEl.innerHTML = currentPlayers.map(p => `
             <span class="px-3 py-1.5 bg-emerald-100 border-2 border-black font-black text-emerald-900 rounded-md flex items-center gap-1.5 shadow-[2px_2px_0px_#000]">
               🟢 ${p.name}
             </span>
@@ -471,7 +518,6 @@
     socket.on('buzz_update', (buzzList) => updateHostLeaderboard(buzzList));
     socket.on('player_list_updated', (players) => updatePlayerList(players));
 
-    /* 玩家接收房间被解散通知 */
     socket.on('room_deleted', () => {
       alert('The Host has deleted this room.');
       document.getElementById('view-player').classList.add('hidden');

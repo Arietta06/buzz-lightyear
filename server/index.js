@@ -174,13 +174,9 @@ io.on('connection', (socket) => {
     if (roomCode && room) {
       console.log(`[Deleting Room] ${roomCode}`);
 
-      // 1. 向该房间内的所有人广播解散消息
       io.to(roomCode).emit('room_deleted');
-
-      // 2. 将房间内所有 Socket 移出频道
       io.in(roomCode).socketsLeave(roomCode);
 
-      // 3. 从服务器内存中彻底清除该房间
       delete rooms[roomCode];
 
       socket.roomCode = null;
