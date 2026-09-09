@@ -1,264 +1,417 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Buzz Lightyear - Live Game Buzzer</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-  <style>
-    @keyframes pulse-glow {
-      0%, 100% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.6); }
-      50% { box-shadow: 0 0 50px rgba(239, 68, 68, 1); }
-    }
-    .buzzer-active { animation: pulse-glow 1.5s infinite; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buzz Lightyear :: Retro Quiz Buzzer</title>
+    <!-- 引入复古像素字体 Pixelify Sans -->
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <style>
+        /* 核心复古样式库 */
+        :root {
+            --pixel-font: 'Pixelify Sans', sans-serif;
+            
+            /* 配色方案：白、绿、蓝、黑 */
+            --bg-color: #fcfcfc;        /* 纯白 */
+            --text-main: #111111;       /* 黑色 */
+            --border-color: #111111;    /* 黑色粗边框 */
+            
+            /* 复古蓝绿 */
+            --arcade-green: #5cb85c;   /* 复古绿 */
+            --arcade-green-hover: #4cae4c; 
+            --arcade-blue: #337ab7;    /* 复古蓝 */
+            --arcade-blue-hover: #2e6da4;
+            --arcade-red: #d9534f;     /* 复古红 (用于清除和重置) */
+            --arcade-red-hover: #c9302c;
+            
+            /* 像素风格阴影 */
+            --pixel-shadow: 4px 4px 0px #111111;
+            --pixel-button-push: translate(2px, 2px);
+            --pixel-shadow-pushed: 2px 2px 0px #111111;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: var(--pixel-font);
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            text-align: center;
+            /* 增加复古背景网格纹理 */
+            background-image: 
+                linear-gradient(90deg, #f0f0f0 1px, transparent 1px),
+                linear-gradient(#f0f0f0 1px, transparent 1px);
+            background-size: 10px 10px;
+        }
+
+        /* 核心像素卡片样式 */
+        .arcade-card {
+            background: #FFFFFF;
+            border: 4px solid var(--border-color);
+            border-radius: 0; /* 必须是直角 */
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: var(--pixel-shadow);
+            margin: 1rem;
+        }
+
+        /* 像素输入框样式 */
+        .arcade-input {
+            width: 100%;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border: 3px solid var(--border-color);
+            border-radius: 0;
+            background-color: #FFFFFF;
+            color: var(--text-main);
+            font-size: 1.1rem;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        
+        .arcade-input:focus {
+            outline: none;
+            border-color: var(--arcade-blue);
+            background-color: #fafaff;
+        }
+
+        /* 复古按钮基础样式 (Arcade Button) */
+        .arcade-btn {
+            display: inline-block;
+            width: 100%;
+            padding: 1rem 1.5rem;
+            margin-bottom: 1rem;
+            color: white;
+            font-weight: 700;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            text-decoration: none;
+            cursor: pointer;
+            border: 4px solid var(--border-color);
+            border-radius: 0;
+            transition: all 0.1s;
+            position: relative;
+            box-shadow: var(--pixel-shadow);
+            -webkit-appearance: none; /* 移除 iOS 样式 */
+        }
+        
+        /* 按钮按下时的 3D 效果 */
+        .arcade-btn:active {
+            transform: var(--pixel-button-push);
+            box-shadow: var(--pixel-shadow-pushed);
+        }
+
+        /* 复古蓝按钮 */
+        .arcade-btn-blue {
+            background-color: var(--arcade-blue);
+        }
+        .arcade-btn-blue:hover {
+            background-color: var(--arcade-blue-hover);
+        }
+
+        /* 复古绿按钮 */
+        .arcade-btn-green {
+            background-color: var(--arcade-green);
+        }
+        .arcade-btn-green:hover {
+            background-color: var(--arcade-green-hover);
+        }
+        
+        /* 复古红按钮 (用于危险操作) */
+        .arcade-btn-red {
+            background-color: var(--arcade-red);
+        }
+        .arcade-btn-red:hover {
+            background-color: var(--arcade-red-hover);
+        }
+
+        /* 复古标题 */
+        h1.game-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            color: var(--text-main);
+            text-shadow: 2px 2px 0px #555, 4px 4px 0px #aaa;
+            letter-spacing: 2px;
+        }
+        
+        h2.game-heading {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            text-transform: uppercase;
+        }
+
+        p.game-subtitle {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            opacity: 0.7;
+        }
+
+        #screen-login, #screen-host, #screen-player { display: none; }
+        .active-screen { display: block !important; }
+
+        /* 抢答画面专属样式 */
+        #answer-area, #buzzer-area {
+            display: none;
+            margin-top: 1.5rem;
+        }
+        
+        .active-answer { display: block !important; }
+
+        /* 复古玩家列表 (Host) */
+        #player-list {
+            margin-top: 2rem;
+            text-align: left;
+            padding: 0 1rem;
+        }
+        
+        .list-title {
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .player-item {
+            font-size: 1rem;
+            padding: 0.5rem;
+            color: var(--text-main);
+            border-bottom: 1px dotted #ccc;
+        }
+        
+        .player-item:before {
+            content: ">> ";
+            color: var(--arcade-green);
+        }
+
+    </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen font-sans flex flex-col items-center justify-center p-4">
-
-  <!-- Header -->
-  <header class="mb-8 text-center">
-    <div class="inline-block px-3 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-full text-indigo-400 text-xs font-mono mb-2">
-      🚀 TO INFINITY AND... BUZZ FIRST!
-    </div>
-    <h1 class="text-4xl font-black tracking-wider bg-gradient-to-r from-emerald-400 via-purple-400 to-amber-300 bg-clip-text text-transparent">
-      BUZZ LIGHTYEAR
-    </h1>
-    <p class="text-slate-400 text-sm mt-1">Don't let your friends win. Press faster!</p>
-  </header>
-
-  <!-- Landing View -->
-  <div id="view-landing" class="w-full max-w-md bg-slate-800/80 backdrop-blur-md p-6 rounded-2xl shadow-xl border border-slate-700/50">
-    <div class="flex gap-2 mb-6">
-      <button id="tab-player-btn" onclick="switchTab('player')" class="flex-1 py-2 font-bold rounded-lg bg-indigo-600 text-white transition">Player Join</button>
-      <button id="tab-host-btn" onclick="switchTab('host')" class="flex-1 py-2 font-bold rounded-lg bg-slate-700 text-slate-400 transition">Host Dashboard</button>
+<body>
+    
+    <!-- 1. 登录/加入界面 -->
+    <div id="screen-login" class="arcade-card active-screen">
+        <h1 class="game-title">BUZZ LIGHTYEAR</h1>
+        <p class="game-subtitle">:: START ::</p>
+        <input type="text" id="room" placeholder="Enter Room Code (4 chars)" maxlength="4" class="arcade-input">
+        <input type="password" id="password" placeholder="Enter Security Code (4 chars)" maxlength="4" class="arcade-input">
+        
+        <button id="btn-create" class="arcade-btn arcade-btn-blue">Create New Room</button>
+        <div style="margin: 1rem 0; font-size: 0.9rem; opacity: 0.6;">-- OR --</div>
+        <input type="text" id="player-name" placeholder="Enter Your Name" maxlength="15" class="arcade-input">
+        <button id="btn-join" class="arcade-btn arcade-btn-green">Join as Player</button>
     </div>
 
-    <!-- Player Join Form -->
-    <form id="form-player" onsubmit="handlePlayerJoin(event)" class="space-y-4">
-      <div>
-        <label class="block text-xs text-slate-400 mb-1">ROOM CODE</label>
-        <input type="text" id="p-room" required placeholder="e.g. 8888" class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:border-indigo-500 font-mono text-lg uppercase">
-      </div>
-      <div>
-        <label class="block text-xs text-slate-400 mb-1">YOUR NICKNAME</label>
-        <input type="text" id="p-name" required placeholder="e.g. Alex" class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:border-indigo-500 text-lg">
-      </div>
-      <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 font-bold rounded-xl shadow-lg transition">Enter Room</button>
-    </form>
-
-    <!-- Host Form -->
-    <form id="form-host" class="space-y-4 hidden">
-      <div>
-        <label class="block text-xs text-slate-400 mb-1">ROOM CODE</label>
-        <input type="text" id="h-room" required placeholder="e.g. 8888" class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:border-indigo-500 font-mono text-lg uppercase">
-      </div>
-      <div>
-        <label class="block text-xs text-slate-400 mb-1">SECURITY CODE (HOST PASSCODE)</label>
-        <input type="password" id="h-code" required placeholder="••••••••" class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:border-indigo-500 text-lg">
-      </div>
-      <div class="flex gap-2">
-        <button type="button" onclick="submitHostAction('create')" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 font-bold rounded-xl transition text-sm">Create New Room</button>
-        <button type="button" onclick="submitHostAction('login')" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 font-bold rounded-xl transition text-sm">Re-login Host</button>
-      </div>
-    </form>
-  </div>
-
-  <!-- Player View -->
-  <div id="view-player" class="w-full max-w-md hidden text-center space-y-6">
-    <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 flex justify-between text-sm">
-      <span>Room: <strong id="display-p-room" class="text-indigo-400 font-mono"></strong></span>
-      <span>Player: <strong id="display-p-name" class="text-indigo-400"></strong></span>
-    </div>
-
-    <div class="py-6 flex justify-center">
-      <button id="buzzer-btn" onclick="pressBuzzer()" disabled class="w-64 h-64 rounded-full bg-slate-800 border-8 border-slate-700 text-slate-600 text-3xl font-black shadow-inner flex items-center justify-center select-none cursor-not-allowed">
-        LOCKED 🔒
-      </button>
-    </div>
-    <div id="player-status" class="text-slate-400 text-sm font-medium h-6">Waiting for Host to start...</div>
-  </div>
-
-  <!-- Host View -->
-  <div id="view-host" class="w-full max-w-2xl hidden space-y-6">
-    <div class="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/50 flex justify-between items-center">
-      <div>
-        <span class="text-xs text-slate-400">HOST DASHBOARD</span>
-        <h2 class="text-xl font-bold font-mono text-indigo-400">Room: <span id="display-h-room"></span></h2>
-      </div>
-      <div class="text-sm text-slate-400">Active Players: <span id="player-count" class="text-emerald-400 font-bold">0</span></div>
-    </div>
-
-    <div class="grid grid-cols-2 gap-4">
-      <button onclick="socket.emit('start_round')" class="py-4 bg-emerald-500 hover:bg-emerald-600 font-extrabold text-lg rounded-2xl shadow-lg transition">🚀 START ROUND</button>
-      <button onclick="socket.emit('reset_round')" class="py-4 bg-rose-600 hover:bg-rose-700 font-extrabold text-lg rounded-2xl shadow-lg transition">🔄 RESET / CLEAR</button>
-    </div>
-
-    <div class="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 space-y-2">
-      <span class="text-xs text-slate-400 font-bold tracking-wider">HOST FX & AUDIO TRIGGER</span>
-      <div class="grid grid-cols-3 gap-2">
-        <button onclick="triggerEffect('cheer')" class="py-2.5 bg-amber-600 hover:bg-amber-500 font-bold rounded-xl text-xs transition">🎉 Confetti & Cheer</button>
-        <button onclick="triggerEffect('bell')" class="py-2.5 bg-indigo-600 hover:bg-indigo-500 font-bold rounded-xl text-xs transition">🔔 Correct Bell</button>
-        <button onclick="triggerEffect('wrong')" class="py-2.5 bg-slate-700 hover:bg-slate-600 font-bold rounded-xl text-xs transition">❌ Wrong Buzzer</button>
-      </div>
-    </div>
-
-    <div class="bg-slate-800/80 p-5 rounded-2xl border border-slate-700/50 space-y-3">
-      <h3 class="font-bold text-slate-300 text-sm">Fastest Buzzers</h3>
-      <div id="buzz-list" class="space-y-2 min-h-[120px]">
-        <div class="text-slate-500 text-center text-sm py-8">No buzzes yet in this round.</div>
-      </div>
-    </div>
-  </div>
-
-  <footer class="mt-8 text-center text-xs text-slate-500">
-    <p>⚡ <strong>Buzz Lightyear</strong> - To infinity and second place!</p>
-    <p class="mt-1 opacity-60">Not affiliated with Disney/Pixar. Just a fun tool for classroom & party games.</p>
-  </footer>
-
-  <script>
-    // 如果是本地测试就连 localhost，线上环境自动连接 Render 的后端
-    const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-    ? 'http://localhost:3000' 
-    : 'https://buzz-lightyear-backend.onrender.com'; 
-
-    const socket = io(BACKEND_URL); 
-
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playSound(type) {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      if (type === 'buzz') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.2);
-      } else if (type === 'bell') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.6);
-      } else if (type === 'wrong') {
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.4);
-      }
-    }
-
-    function switchTab(tab) {
-      document.getElementById('form-player').classList.toggle('hidden', tab !== 'player');
-      document.getElementById('form-host').classList.toggle('hidden', tab !== 'host');
-      document.getElementById('tab-player-btn').className = tab === 'player' ? 'flex-1 py-2 font-bold rounded-lg bg-indigo-600 text-white transition' : 'flex-1 py-2 font-bold rounded-lg bg-slate-700 text-slate-400 transition';
-      document.getElementById('tab-host-btn').className = tab === 'host' ? 'flex-1 py-2 font-bold rounded-lg bg-indigo-600 text-white transition' : 'flex-1 py-2 font-bold rounded-lg bg-slate-700 text-slate-400 transition';
-    }
-
-    function handlePlayerJoin(e) {
-      e.preventDefault();
-      const roomCode = document.getElementById('p-room').value.trim().toUpperCase();
-      const name = document.getElementById('p-name').value.trim();
-
-      socket.emit('join_player', { roomCode, name }, (res) => {
-        if (res.success) {
-          document.getElementById('view-landing').classList.add('hidden');
-          document.getElementById('view-player').classList.remove('hidden');
-          document.getElementById('display-p-room').innerText = roomCode;
-          document.getElementById('display-p-name').innerText = name;
-          if (res.isCanBuzz) updateBuzzerState(true);
-        } else {
-          alert(res.message);
-        }
-      });
-    }
-
-    function submitHostAction(action) {
-      const roomCode = document.getElementById('h-room').value.trim().toUpperCase();
-      const hostCode = document.getElementById('h-code').value.trim();
-      if (!roomCode || !hostCode) return alert('Please enter both Room Code and Security Code!');
-
-      const eventName = action === 'create' ? 'create_room' : 'host_login';
-      socket.emit(eventName, { roomCode, hostCode }, (res) => {
-        if (res.success) {
-          document.getElementById('view-landing').classList.add('hidden');
-          document.getElementById('view-host').classList.remove('hidden');
-          document.getElementById('display-h-room').innerText = roomCode;
-          if (res.roomData) updateHostLeaderboard(res.roomData.buzzList);
-        } else {
-          alert(res.message);
-        }
-      });
-    }
-
-    function pressBuzzer() {
-      playSound('buzz');
-      if (navigator.vibrate) navigator.vibrate(100);
-      socket.emit('press_buzzer');
-      updateBuzzerState(false, "BUZZED IN!");
-    }
-
-    function triggerEffect(type) {
-      socket.emit('trigger_effect', type);
-    }
-
-    function updateBuzzerState(enabled, statusText) {
-      const btn = document.getElementById('buzzer-btn');
-      const status = document.getElementById('player-status');
-      btn.disabled = !enabled;
-      if (enabled) {
-        btn.className = "w-64 h-64 rounded-full bg-gradient-to-tr from-red-600 to-rose-500 hover:from-red-500 hover:to-rose-400 text-white text-4xl font-black shadow-2xl transition-all duration-100 flex items-center justify-center select-none active:scale-95 cursor-pointer buzzer-active";
-        btn.innerText = "BUZZ!";
-        status.innerText = "READY! PRESS TO BUZZ!";
-        status.className = "text-emerald-400 font-bold text-sm h-6";
-      } else {
-        btn.className = "w-64 h-64 rounded-full bg-slate-800 border-8 border-slate-700 text-slate-600 text-3xl font-black shadow-inner flex items-center justify-center select-none cursor-not-allowed";
-        btn.innerText = statusText || "LOCKED 🔒";
-        status.innerText = statusText ? "You have buzzed in!" : "Waiting for next round...";
-        status.className = "text-slate-400 text-sm font-medium h-6";
-      }
-    }
-
-    function updateHostLeaderboard(list) {
-      const container = document.getElementById('buzz-list');
-      if (!list || list.length === 0) {
-        container.innerHTML = `<div class="text-slate-500 text-center text-sm py-8">No buzzes yet in this round.</div>`;
-        return;
-      }
-      container.innerHTML = list.map((item, idx) => `
-        <div class="flex justify-between items-center p-3 rounded-xl ${idx === 0 ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300' : 'bg-slate-700/40 text-slate-300'}">
-          <div class="flex items-center gap-3">
-            <span class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${idx === 0 ? 'bg-amber-500 text-slate-900' : 'bg-slate-600'}">${item.rank}</span>
-            <span class="font-bold">${item.name}</span>
-          </div>
-          <span class="font-mono text-xs opacity-70">${item.time}</span>
+    <!-- 2. 主持人界面 (Host) -->
+    <div id="screen-host" class="arcade-card">
+        <h2 class="game-heading">HOST DASHBOARD</h2>
+        <p id="host-info" style="font-size: 1.1rem; margin-bottom: 1.5rem; font-weight:700;">
+            Room: <span id="host-room-display" style="color:var(--arcade-blue);">....</span>
+        </p>
+        
+        <div id="answer-area">
+            <h3 class="game-heading" style="color:var(--arcade-blue);">>> PLAYER ANSWERING <<</h3>
+            <p id="current-answer-player" style="font-size: 1.8rem; font-weight:700; background:#eee; color:#111; border: 3px solid #111; padding: 1rem 0; box-shadow: 2px 2px 0 #111;">...</p>
+            <div style="display: flex; gap: 10px; margin-top: 1.5rem;">
+                <button id="btn-correct" class="arcade-btn arcade-btn-green">CORRECT</button>
+                <button id="btn-incorrect" class="arcade-btn arcade-btn-red">INCORRECT</button>
+            </div>
         </div>
-      `).join('');
-    }
+        
+        <button id="btn-reset" class="arcade-btn arcade-btn-blue" style="margin-top:2rem;">Reset All Buzzers</button>
+        <button id="btn-clear-confetti" class="arcade-btn arcade-btn-red" style="font-size:1rem; margin-top:10px;">Clear Winners</button>
 
-    socket.on('round_started', () => updateBuzzerState(true));
-    socket.on('round_reset', () => {
-      updateBuzzerState(false);
-      updateHostLeaderboard([]);
-    });
-    socket.on('buzz_update', (buzzList) => updateHostLeaderboard(buzzList));
-    socket.on('player_list_updated', (players) => {
-      const el = document.getElementById('player-count');
-      if (el) el.innerText = players.length;
-    });
-    socket.on('play_effect', (type) => {
-      if (type === 'cheer') {
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-        playSound('bell');
-      } else if (type === 'bell') playSound('bell');
-      else if (type === 'wrong') playSound('wrong');
-    });
-  </script>
+        <div id="player-list">
+            <h3 class="list-title">Online Players</h3>
+            <div id="player-list-content"></div>
+        </div>
+    </div>
+
+    <!-- 3. 玩家抢答界面 (Player) -->
+    <div id="screen-player" class="arcade-card">
+        <h2 class="game-heading">QUIZ buzzy</h2>
+        <p id="player-info" style="margin-bottom:1rem; font-size:1.1rem; font-weight:700;">
+            Room: <span id="player-room-display" style="color:var(--arcade-blue);">....</span> | 
+            As: <span id="player-name-display" style="color:var(--arcade-green);">....</span>
+        </p>
+        <div id="buzzer-area">
+            <h3 class="game-heading">:: Get Ready ::</h3>
+            <button id="btn-buzz" class="arcade-btn arcade-btn-green" style="font-size:1.8rem; padding: 1.5rem; text-shadow:1px 1px 0 #111;">BUZZ</button>
+            <p style="margin-top:1rem; font-size:1rem; color:var(--arcade-red); font-weight:700;">PUSH TO ANSWER!</p>
+        </div>
+        <p id="player-status" style="display:none; margin-top:1.5rem; font-size:1.2rem; background:#eee; padding: 1rem; border:2px solid #111;">Waiting for Host...</p>
+    </div>
+
+    <script>
+        // ==========================================
+        // #⚠️ 1. 请把这里换成你的真实 Render 网址！！！
+        // 例如: https://buzz-lightyear-backend.onrender.com
+        // ==========================================
+        const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+          ? 'http://localhost:3000' 
+          : 'https://buzz-lightyear-backend.onrender.com'; // &lt;-- 必换！
+
+        const socket = io(BACKEND_URL);
+
+        // ... 后续所有逻辑与昨天完全一致，无需修改 ...
+        const uiControl = {
+            screenLogin: document.getElementById('screen-login'),
+            screenHost: document.getElementById('screen-host'),
+            screenPlayer: document.getElementById('screen-player'),
+            answerArea: document.getElementById('answer-area'),
+            buzzerArea: document.getElementById('buzzer-area'),
+            showScreen(screen) {
+                [this.screenLogin, this.screenHost, this.screenPlayer].forEach(s => s.classList.remove('active-screen'));
+                screen.classList.add('active-screen');
+            },
+            updateStatus(msg) {
+                const status = document.getElementById('player-status');
+                if (msg) {
+                    status.textContent = msg;
+                    status.style.display = 'block';
+                } else {
+                    status.style.display = 'none';
+                }
+            }
+        };
+        const audios = {
+            buzz: new Audio('https://www.myinstants.com/media/sounds/buzz-in.mp3'),
+            winner: new Audio('https://www.myinstants.com/media/sounds/ta-da_9.mp3')
+        };
+        audios.buzz.volume = audios.winner.volume = 0.5;
+
+        socket.on('connect', () => console.log('✅ 8-Bit Buzz Link ESTABLISHED'));
+        socket.on('roomError', msg => alert('❌ ERROR: ' + msg));
+
+        // Create
+        document.getElementById('btn-create').onclick = () => {
+            const room = document.getElementById('room').value.trim();
+            const password = document.getElementById('password').value.trim();
+            if (room.length === 4 && password.length === 4) {
+                socket.emit('createRoom', { room, password });
+            } else { alert('Room/Code must be 4 digits!'); }
+        };
+        socket.on('roomCreated', room => {
+            uiControl.showScreen(uiControl.screenHost);
+            document.getElementById('host-room-display').textContent = room;
+            document.getElementById('host-info').style.display = 'block';
+        });
+
+        // Join
+        document.getElementById('btn-join').onclick = () => {
+            const room = document.getElementById('room').value.trim();
+            const playerName = document.getElementById('player-name').value.trim();
+            if (room.length === 4 && playerName) {
+                socket.emit('joinRoom', { room, playerName });
+            } else { alert('Room Code (4 chars) and Name required!'); }
+        };
+        socket.on('roomJoined', roomData => {
+            uiControl.showScreen(uiControl.screenPlayer);
+            document.getElementById('player-room-display').textContent = roomData.room;
+            document.getElementById('player-name-display').textContent = roomData.playerName;
+            document.getElementById('player-info').style.display = 'block';
+            
+            uiControl.buzzerArea.style.display = roomData.hostResetted ? 'block' : 'none';
+            uiControl.updateStatus(roomData.hostResetted ? '' : 'Waiting for Host...');
+        });
+
+        // Host Player List
+        socket.on('playerListUpdate', (players) => {
+            const playerListContent = document.getElementById('player-list-content');
+            playerListContent.innerHTML = '';
+            players.forEach(p => {
+                const pItem = document.createElement('div');
+                pItem.className = 'player-item';
+                pItem.textContent = p;
+                playerListContent.appendChild(pItem);
+            });
+        });
+
+        // Buzz
+        document.getElementById('btn-buzz').onclick = () => {
+            const room = document.getElementById('player-room-display').textContent;
+            socket.emit('buzz', room);
+        };
+        socket.on('playerAnswered', data => {
+            audios.buzz.play();
+            // Player side
+            if(document.getElementById('screen-player').classList.contains('active-screen')) {
+                uiControl.buzzerArea.style.display = 'none';
+                uiControl.updateStatus(`Player ${data.playerName} is answering...`);
+            }
+            // Host side
+            if(document.getElementById('screen-host').classList.contains('active-screen')) {
+                document.getElementById('current-answer-player').textContent = data.playerName;
+                uiControl.answerArea.style.display = 'block';
+                document.getElementById('btn-reset').style.display = 'none';
+            }
+        });
+
+        // Host Judge
+        document.getElementById('btn-correct').onclick = () => {
+            const room = document.getElementById('host-room-display').textContent;
+            const playerName = document.getElementById('current-answer-player').textContent;
+            socket.emit('judgeAnswer', { room, playerName, result: 'correct' });
+        };
+        document.getElementById('btn-incorrect').onclick = () => {
+            const room = document.getElementById('host-room-display').textContent;
+            const playerName = document.getElementById('current-answer-player').textContent;
+            socket.emit('judgeAnswer', { room, playerName, result: 'incorrect' });
+        };
+        socket.on('answerJudged', data => {
+            uiControl.answerArea.style.display = 'none';
+            // Host reset logic is now separate
+            if(document.getElementById('screen-host').classList.contains('active-screen')) {
+                 document.getElementById('btn-reset').style.display = 'block';
+            }
+
+            if (data.result === 'correct') {
+                audios.winner.play();
+                // 复古蓝绿白 Confetti，只洒一下
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#FFFFFF', '#337ab7', '#5cb85c'] // 白蓝绿
+                });
+                if(document.getElementById('screen-player').classList.contains('active-screen')) {
+                    uiControl.updateStatus(`[CORRECT] Player ${data.playerName} wins this round!`);
+                }
+            } else {
+                if(document.getElementById('screen-player').classList.contains('active-screen')) {
+                    uiControl.updateStatus(`[INCORRECT] Player ${data.playerName} answer wrong.`);
+                }
+            }
+        });
+
+        // Host Reset
+        document.getElementById('btn-reset').onclick = () => {
+            const room = document.getElementById('host-room-display').textContent;
+            socket.emit('resetBuzzers', room);
+        };
+        socket.on('buzzersResetted', () => {
+            // Player side
+            if(document.getElementById('screen-player').classList.contains('active-screen')) {
+                uiControl.updateStatus('');
+                uiControl.buzzerArea.style.display = 'block';
+            }
+        });
+
+        // Host Clear Winners (Optional)
+        document.getElementById('btn-clear-confetti').onclick = () => {
+             confetti.reset();
+        };
+
+    </script>
 </body>
 </html>
